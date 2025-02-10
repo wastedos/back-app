@@ -19,7 +19,7 @@ const bookingRoutes = require('./routes/booking');
 const app = express();
 
 const corsOptions = {
-  origin: 'http://localhost:3000', // السماح فقط للأصل (Frontend) بالوصول
+  origin: ['http://localhost:3000', 'https://go-gac.com'], // السماح فقط للأصل (Frontend) بالوصول
   credentials: true,              // السماح بإرسال ملفات تعريف الارتباط (Cookies)
 }
 
@@ -36,16 +36,16 @@ mongoose
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // المسارات
-app.use('/auth', authRoutes);
-app.use('/protected', protectedRoutes);
-app.use('/users', usersRoutes)
-app.use('/dashboard', dashboardRoutes)
-app.use('/joborders', jobordersRoutes);
-app.use('/warehouse', warehouseRoutes);
-app.use('/transactions', transactionRoutes);
-app.use('/bills', billsRoutes);
-app.use('/dealer', dealerRoutes)
-app.use('/booking', bookingRoutes)
+app.use('/api/auth', authRoutes);
+app.use('/api/protected', protectedRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/joborders', jobordersRoutes);
+app.use('/api/warehouse', warehouseRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/bills', billsRoutes);
+app.use('/api/dealer', dealerRoutes);
+app.use('/api/booking', bookingRoutes);
 
 
 // بدء الخادم
