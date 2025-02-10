@@ -154,24 +154,26 @@ router.post("/add-returnIncome", async (req, res) => {
 
 // Add Return Outgo
 router.post("/add-returnoutgo", async (req, res) => {
-  const { code, quantity, price, billnumber, reason } = req.body;
+  console.log("Received Request Body:", req.body); // ✅ تحقق من أن البيانات تصل بشكل صحيح
+
+  const { code, quantity, reason } = req.body;
+
+  if (!code || !quantity || !reason) {
+    return res.status(400).json({ message: "جميع الحقول مطلوبة." });
+  }
 
   try {
-    console.log("Request Body:", req.body);
-
     const existingOutgo = await Outgo.findOne({ code });
     if (!existingOutgo) {
       console.log("Outgo not found");
       return res.status(404).json({ message: "Outgo not found." });
     }
-    console.log("Existing Outgo:", existingOutgo);
 
     const existingProduct = await Product.findOne({ code });
     if (!existingProduct) {
       console.log("Product not found");
       return res.status(404).json({ message: "Product not found." });
     }
-    console.log("Existing Product:", existingProduct);
 
     if (existingOutgo.quantity < quantity) {
       return res.status(400).json({ message: "Requested quantity exceeds available quantity in outgo." });
@@ -182,9 +184,9 @@ router.post("/add-returnoutgo", async (req, res) => {
       category: existingProduct.category,
       brand: existingProduct.brand,
       quantity,
-      price,
-      total: Number(quantity) * Number(price),
-      billnumber,
+      price: existingOutgo.price,
+      total: Number(quantity) * Number(existingOutgo.price),
+      billnumber: existingProduct.billnumber,
       buyer: existingOutgo.buyer,
       buyerphone: existingOutgo.buyerphone,
       reason,
@@ -193,7 +195,6 @@ router.post("/add-returnoutgo", async (req, res) => {
     await returnoutgo.save();
     console.log("ReturnOutgo Saved:", returnoutgo);
 
-    // تحديث المنتج
     existingProduct.quantity += Number(quantity);
     existingProduct.outgo -= Number(quantity);
     existingProduct.returnout += Number(quantity);
@@ -204,10 +205,11 @@ router.post("/add-returnoutgo", async (req, res) => {
 
     res.status(200).json({ message: "Outgo was returned to warehouse." });
   } catch (error) {
-    console.error("Error in /add-returnoutgo:", error.message);
+    console.error("❌ Error in /add-returnoutgo:", error);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 /* ===================================== GET ===================================== */
