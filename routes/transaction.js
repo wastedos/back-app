@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const moment = require('moment');
 const { Safe, Deposit, Withdraw, Transfer } = require("../models/transaction");
 
 // ================================================ GET ================================================
@@ -41,40 +42,82 @@ router.get("/read-transfer", async (req, res) => {
 });
 
 
-router.get("/withdraw-chart-data", async (req, res) => {
-  try {
-    const { month } = req.query; // الشهر المطلوب (مثال: "1" لشهر يناير)
+const getMonthRange = (year, month) => {
+  const startOfMonth = moment(`${year}-${month}-01`).startOf("month").toDate();
+  const endOfMonth = moment(`${year}-${month}-01`).endOf("month").toDate();
+  return { startOfMonth, endOfMonth };
+};
 
-    if (!month) {
-      return res.status(400).json({ error: "يرجى تحديد الشهر" });
+router.get("/monthly-transactions", async (req, res) => {
+  try {
+    let { month, year } = req.query;
+    let matchCondition = {}; 
+
+    if (month && year) {
+      year = parseInt(year, 10);
+      month = parseInt(month, 10);
+      const { startOfMonth, endOfMonth } = getMonthRange(year, month);
+      matchCondition.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
     }
 
-    // تحديد نطاق التاريخ بناءً على الشهر
-    const startOfMonth = moment().month(month - 1).startOf('month').format('MM-DD-YYYY');
-    const endOfMonth = moment().month(month - 1).endOf('month').format('MM-DD-YYYY');
+    const allSafes = ["cash", "vodafone", "instapay", "fawry"];
 
-    // جلب بيانات السحوبات ضمن الشهر
-    const withdraws = await Withdraw.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startOfMonth, $lte: endOfMonth },
-        },
-      },
-      {
-        $group: {
-          _id: "$typeSafe",  // تجميع حسب نوع الخزنة
-          totalWithdraw: { $sum: "$amountWithdraw" },
-        },
-      },
+    const deposits = await Deposit.aggregate([
+      { $match: matchCondition },
+      { $group: { _id: "$typeSafe", totalDeposit: { $sum: "$amountDeposit" } } }
     ]);
 
-    // إرسال البيانات للـ Frontend
-    res.status(200).json({ withdraws });
+    const withdraws = await Withdraw.aggregate([
+      { $match: matchCondition },
+      { $group: { _id: "$typeSafe", totalWithdraw: { $sum: "$amountWithdraw" } } }
+    ]);
+
+    const formattedDeposits = allSafes.map(safe => {
+      const deposit = deposits.find(d => d._id === safe);
+      return { _id: safe, totalDeposit: deposit ? deposit.totalDeposit : 0 };
+    });
+
+    const formattedWithdraws = allSafes.map(safe => {
+      const withdraw = withdraws.find(w => w._id === safe);
+      return { _id: safe, totalWithdraw: withdraw ? withdraw.totalWithdraw : 0 };
+    });
+
+    res.status(200).json({ deposits: formattedDeposits, withdraws: formattedWithdraws });
   } catch (error) {
-    console.error("Error fetching withdraw chart data:", error);
-    res.status(500).json({ error: "خطأ في جلب بيانات السحوبات", details: error.message });
+    console.error("Error fetching transactions:", error);
+    res.status(500).json({ error: "خطأ في جلب البيانات", details: error.message });
   }
-}); 
+});
+
+
+
+// دالة لإرجاع بداية اليوم ونهايته
+const getTodayRange = () => {
+  const startOfDay = moment().startOf("day").toDate();
+  const endOfDay = moment().endOf("day").toDate();
+  return { startOfDay, endOfDay };
+};
+// API لجلب عمليات الإيداع والسحب لليوم الحالي فقط
+router.get("/today-transactions", async (req, res) => {
+  try {
+    const { startOfDay, endOfDay } = getTodayRange();
+
+    const deposits = await Deposit.find({
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    const withdraws = await Withdraw.find({
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    res.status(200).json({ deposits, withdraws });
+  } catch (error) {
+    console.error("Error fetching today's transactions:", error); // ✅ طباعة الخطأ في السيرفر
+    res.status(500).json({ error: "خطأ في جلب بيانات اليوم", details: error.message });
+  }
+});
+
+
 
 // ================================================ POST ================================================
 // إيداع
@@ -106,7 +149,7 @@ router.post("/deposit", async (req, res) => {
 // سحب
 router.post("/withdraw", async (req, res) => {
   try {
-    const { typeSafe, amountWithdraw, typeWithdraw, reasonWithdraw } = req.body;
+    const { typeSafe, amountWithdraw, typeWithdraw, payee, reasonWithdraw } = req.body;
 
     if (!typeSafe || !amountWithdraw || !typeWithdraw) {
       return res.status(400).json({ error: "يرجى إدخال جميع الحقول المطلوبة" });
@@ -123,7 +166,7 @@ router.post("/withdraw", async (req, res) => {
     await safe.save();
 
     // حفظ عملية السحب
-    const withdraw = new Withdraw({ typeSafe, amountWithdraw, typeWithdraw, reasonWithdraw });
+    const withdraw = new Withdraw({ typeSafe, amountWithdraw, typeWithdraw, payee, reasonWithdraw });
     await withdraw.save();
 
     res.status(200).json({ message: "تم السحب بنجاح", safe });

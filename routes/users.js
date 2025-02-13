@@ -9,10 +9,20 @@ const { authenticate } = require('../middlewares/authMiddleware')
 
 
 /* ===================================== GET ===================================== */
-// Read all product
+// Read all users
 router.get("/read-users", async (req, res) => {
   try {
     const user = await User.find();
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Read user by id
+router.get("/get-user/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
     res.status(200).json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
