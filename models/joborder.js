@@ -6,21 +6,12 @@ const jobOrderSchema = new mongoose.Schema({
   clientPhone: { type: String, required: true },
   carModel: { type: String, required: true },
   carColor: { type: String, required: true },
+  chassis: { type: String, },
   carKm: { type: String, },
-
   jobs: [
     {
       jobName: {type: String},
     }
-  ],
-  outjob: [
-    {
-      jobName: { type: String, },
-      dealerName: { type: String, },
-      quantity: { type: Number, default: 1 },
-      jobPriceBuy: { type: Number, },
-      jobPriceSell: { type: Number, },
-    },
   ],
   parts: [
     {
@@ -30,6 +21,16 @@ const jobOrderSchema = new mongoose.Schema({
       category: { type: String, },
     },
   ],
+  outjob: [
+    {
+      jobName: { type: String, },
+      dealerName: { type: String, },
+      quantity: { type: Number, default: 1 },
+      jobPriceBuy: { type: Number, },
+      jobPriceSell: { type: Number, },
+      imageName: { type: String },
+    },
+  ],
   newparts: [
     {
       category: { type: String, },
@@ -37,6 +38,7 @@ const jobOrderSchema = new mongoose.Schema({
       quantity: { type: Number, },
       pricesell: { type: Number, },
       pricebuy: { type: Number, },
+      imageName: { type: String },
     },
   ],
   other: [
@@ -57,12 +59,13 @@ const jobOrderSchema = new mongoose.Schema({
 
 // Middleware to calculate Jobid and total before saving
 jobOrderSchema.pre('save', async function (next) {
-  /*
+  
   if (!this.Jobid) {
     // Generate Jobid as the next sequential number
     const lastOrder = await mongoose.model('JobOrder').findOne().sort({ Jobid: -1 });
     this.Jobid = lastOrder ? lastOrder.Jobid + 1 : 1; // Start from 1 if no orders exist
-  }*/
+  }
+  /*
   let currentJobId = 0;
   function getNextJobId() {
     currentJobId += 1;
@@ -72,6 +75,7 @@ jobOrderSchema.pre('save', async function (next) {
   if (!this.Jobid) {
     this.Jobid = getNextJobId();
   }
+  */
 
   // Calculate totals for each array
   const partsTotal = this.parts.reduce((sum, part) => sum + (part.quantity * part.pricesell || 0), 0);
@@ -81,7 +85,6 @@ jobOrderSchema.pre('save', async function (next) {
 
   // Calculate the grand total
   this.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + this.invoice - (this.discount || 0);
-
   next();
 });
 

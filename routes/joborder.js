@@ -5,8 +5,66 @@ const Bill = require('../models/bills');
 const { Safe, Deposit, } = require("../models/transaction");
 const { Dealer, } = require("../models/dealer");
 const { Product, Income, Outgo, ReturnIncome, ReturnOutgo, Historywarehouse } = require("../models/warehouse");
+const upload = require("../middlewares/uploads")
+const fs = require('fs');   
+const path = require('path');
 
+// اضافة الطلبات أمر الشغل
+router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { name: 'outjobImage', maxCount: 5 }]), async (req, res) => {
+  try {
+    console.log("✅ Received body:", req.body);
+    console.log("✅ Uploaded files:", req.files);
 
+    // تحويل البيانات القادمة من formData لأنها تصل كنصوص
+    const newOrderData = {
+      clientName: req.body.clientName,
+      clientPhone: req.body.clientPhone,
+      carModel: req.body.carModel,
+      carColor: req.body.carColor,
+      carKm: req.body.carKm,
+      chassis: req.body.chassis,
+      invoice: req.body.invoice || "",
+      discount: req.body.discount || "",
+      payment: req.body.payment || "",
+      jobs: req.body.jobs ? JSON.parse(req.body.jobs) : [],
+      parts: req.body.parts ? JSON.parse(req.body.parts) : [],
+      outjob: req.body.outjob ? JSON.parse(req.body.outjob) : [],
+      other: req.body.other ? JSON.parse(req.body.other) : [],
+      newparts: req.body.newparts ? JSON.parse(req.body.newparts) : [],
+    };
+
+    // لو فيه صور مرفوعة لـ `newparts`
+    if (req.files['newpartsImage']) {
+      newOrderData.newparts.forEach((part, index) => {
+        part.imageName = req.files['newpartsImage'][index]?.filename; // تعيين اسم الملف للجزء
+      });
+    }
+
+    // لو فيه صور مرفوعة لـ `outjob`
+    if (req.files['outjobImage']) {
+      newOrderData.outjob.forEach((out, index) => {
+        out.imageName = req.files['outjobImage'][index]?.filename; // تعيين اسم الملف للوظيفة
+      });
+    }
+
+    // إنشاء الطلب الجديد وحفظه
+    const newOrder = new JobOrder(newOrderData);
+    await newOrder.save();
+
+    res.status(201).json({ message: "✅ Job order added successfully", newOrder });
+  } catch (err) {
+    console.error("❌ Error saving job order:", err);
+    res.status(500).json({ error: "Failed to save job order" });
+  }
+});
+
+/*
+router.post('/image', upload.single("image"), (req, res) => {
+  res.status(200).json({message: "image uploaded"})
+})
+*/
+
+/*
 // اضافة الطلبات امر الشغل
 router.post('/add', async (req, res) => {
   try {
@@ -19,10 +77,112 @@ router.post('/add', async (req, res) => {
     console.error('Error saving job order:', err);
     res.status(500).json({ error: 'Failed to save job order' });
   }
+});*/
+
+
+router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { name: 'outjobImage', maxCount: 5 }]), async (req, res) => {
+  try {
+    console.log("✅ Received body:", req.body);
+    console.log("✅ Uploaded files:", req.files);
+    
+    // 1. البحث عن الطلب القديم
+    const existingOrder = await JobOrder.findById(req.params.id);
+    if (!existingOrder) {
+      return res.status(404).json({ message: 'Job order not found' });
+    }
+
+    // 2. حذف الصور القديمة لو تم رفع صور جديدة
+    const deleteOldImages = (oldImages = [], newImages = []) => {
+      if (!Array.isArray(oldImages) || !Array.isArray(newImages)) {
+        console.error("❌ Error: oldImages or newImages is not an array.");
+        return;
+      }
+    
+      if (newImages.length > 0 && oldImages.length > 0) {
+        oldImages.forEach(image => {
+          if (!image?.imageName) {
+            console.warn("⚠️ Warning: imageName is undefined or null for image:", image);
+            return;
+          }
+    
+          const oldImagePath = path.join(__dirname, '../images/', image.imageName);
+          if (fs.existsSync(oldImagePath)) {
+            try {
+              fs.unlinkSync(oldImagePath);
+              console.log(`✅ Deleted old image: ${oldImagePath}`);
+            } catch (err) {
+              console.error("❌ Error deleting image:", err);
+            }
+          } else {
+            console.warn(`⚠️ Image not found: ${oldImagePath}`);
+          }
+        });
+      }
+    };
+
+    if (req.files['newpartsImage']) {
+      deleteOldImages(existingOrder.newparts, req.files['newpartsImage']);
+    }
+
+    if (req.files['outjobImage']) {
+      deleteOldImages(existingOrder.outjob, req.files['outjobImage']);
+    }
+
+    // 3. تحديث البيانات
+    const updatedData = {
+      clientName: req.body.clientName,
+      clientPhone: req.body.clientPhone,
+      carModel: req.body.carModel,
+      carColor: req.body.carColor,
+      carKm: req.body.carKm,
+      chassis: req.body.chassis,
+      invoice: req.body.invoice || "",
+      discount: req.body.discount || "",
+      payment: req.body.payment || "",
+      jobs: req.body.jobs ? JSON.parse(req.body.jobs) : existingOrder.jobs,
+      parts: req.body.parts ? JSON.parse(req.body.parts) : existingOrder.parts,
+      outjob: req.body.outjob ? JSON.parse(req.body.outjob) : existingOrder.outjob,
+      other: req.body.other ? JSON.parse(req.body.other) : existingOrder.other,
+      newparts: req.body.newparts ? JSON.parse(req.body.newparts) : existingOrder.newparts,
+    };
+
+    // 4. تحديث الصور لو فيه صور جديدة
+    if (req.files['newpartsImage']) {
+      updatedData.newparts.forEach((part, index) => {
+        part.imageName = req.files['newpartsImage'][index]?.filename || part.imageName;
+      });
+    }
+
+    if (req.files['outjobImage']) {
+      updatedData.outjob.forEach((out, index) => {
+        out.imageName = req.files['outjobImage'][index]?.filename || out.imageName;
+      });
+    }
+
+    // 5. تحديث الطلب في قاعدة البيانات
+    const updatedOrder = await JobOrder.findByIdAndUpdate(req.params.id, updatedData, { new: true });
+
+    // 6. إعادة حساب الإجمالي
+    const calculateTotal = (arr, key, multiplier = 1) => arr.reduce((sum, item) => sum + ((item[key] || 0) * (item[multiplier] || 1)), 0);
+
+    const partsTotal = calculateTotal(updatedOrder.parts, "price", "quantity");
+    const newPartsTotal = calculateTotal(updatedOrder.newparts, "pricesell", "quantity");
+    const outjobTotal = calculateTotal(updatedOrder.outjob, "jobPriceSell");
+    const otherTotal = calculateTotal(updatedOrder.other, "otherPrice");
+
+    updatedOrder.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + (updatedOrder.invoice || 0) - (updatedOrder.discount || 0);
+
+    // 7. حفظ التعديلات
+    await updatedOrder.save();
+
+    res.status(200).json({ message: '✅ Job order updated successfully', updatedOrder });
+  } catch (err) {
+    console.error("❌ Error updating job order:", err);
+    res.status(500).json({ message: 'Error updating job order', error: err.message });
+  }
 });
 
-
-// حذف طلب تشغيل عند إصدار فاتورة
+// =============================> حذف طلب تشغيل عند إصدار فاتورة <=============================
 router.delete('/bills-byid/:id', async (req, res) => {
   try {
     // البحث عن الطلب باستخدام المعرف
@@ -56,6 +216,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
       clientPhone: jobOrder.clientPhone,
       carModel: jobOrder.carModel,
       carColor: jobOrder.carColor,
+      chassis: jobOrder.chassis,
       carKm: jobOrder.carKm,
       parts: jobOrder.parts,
       newparts: jobOrder.newparts,
@@ -133,6 +294,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
         servicePriceBuy: job.jobPriceBuy,
         servicePriceSell: job.jobPriceSell,
         billNumber: newJobid,
+        imageName: job.imageName,
       });
 
       await dealer.save(); // حفظ التاجر بعد التحديث
@@ -158,6 +320,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
         servicePriceBuy: part.pricebuy,
         servicePriceSell: part.pricesell,
         billNumber: newJobid,
+        imageName: part.imageName,
       });
 
       await dealer.save(); // حفظ التاجر بعد التحديث
@@ -181,7 +344,6 @@ router.delete('/bills-byid/:id', async (req, res) => {
 });
 
 
-
 // الحصول على جميع الطلبات المؤقتة
 router.get('/temporary', async (req, res) => {
   try {
@@ -201,35 +363,6 @@ router.get('/job-byid/:id', async (req, res) => {
     res.status(500).json({ message: 'Error fetching job orders', error: err.message });
   }
 });
-
-
-router.put('/update-byid/:id', async (req, res) => {
-  try {
-    // 1. Find the job order by ID and update it
-    const updatedOrder = await JobOrder.findByIdAndUpdate(req.params.id, req.body, { new: true });
-
-    if (!updatedOrder) {
-      return res.status(404).json({ message: 'Job order not found' });
-    }
-
-    // 2. Calculate the total manually (same logic as in the pre-save middleware)
-    const partsTotal = updatedOrder.parts.reduce((sum, part) => sum + (part.quantity * part.price || 0), 0);
-    const newPartsTotal = updatedOrder.newparts.reduce((sum, part) => sum + (part.quantity * part.pricesell || 0), 0);
-    const outjobTotal = updatedOrder.outjob.reduce((sum, job) => sum + (job.jobPriceSell || 0), 0);
-    const otherTotal = updatedOrder.other.reduce((sum, item) => sum + (item.otherPrice || 0), 0);
-
-    // 3. Update the total field
-    updatedOrder.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + updatedOrder.invoice - (updatedOrder.discount || 0);
-
-    // 4. Save the updated order with the new total
-    await updatedOrder.save();
-
-    res.status(200).json({ message: 'Job order updated successfully', updatedOrder });
-  } catch (err) {
-    res.status(500).json({ message: 'Error updating job order', error: err.message });
-  }
-});
-
 
 // حذف طلب تشغيل عند إصدار فاتورة
 router.delete('/delete-byid/:id', async (req, res) => {

@@ -15,6 +15,7 @@ const dealerSchema = new mongoose.Schema({
       servicePriceBuy: { type: Number, },
       servicePriceSell: { type: Number, },
       billNumber: { type: Number, },
+      imageName: { type: String, },
     },
   ],
   totalPriceBuy: { type: Number, default: 0 },

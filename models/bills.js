@@ -7,6 +7,7 @@ const BillsSchema = new mongoose.Schema({
   clientPhone: { type: String, required: true },
   carModel: { type: String, required: true },
   carColor: { type: String, required: true },
+  chassis: { type: String, },
   carKm: { type: String, },
   jobs: [
     {
@@ -28,6 +29,7 @@ const BillsSchema = new mongoose.Schema({
       quantity: { type: Number, },
       pricesell: { type: Number, },
       pricebuy: { type: Number, },
+      imageName: { type: String, },
     },
   ],
   outjob: [
@@ -36,6 +38,7 @@ const BillsSchema = new mongoose.Schema({
       dealerName: { type: String, },
       jobPriceBuy: { type: Number, },
       jobPriceSell: { type: Number, },
+      imageName: { type: String, },
     },
   ],
   other: [

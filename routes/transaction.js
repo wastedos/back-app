@@ -16,7 +16,7 @@ router.get("/safe", async (req, res) => {
 
 router.get("/read-deposit", async (req, res) => {
   try {
-    const deposit = await Deposit.find();
+    const deposit = await Deposit.find().sort({ createdAt: -1 });
     res.status(200).json(deposit);
   } catch (error) {
     res.status(500).json({ error: "خطأ في عرض البيانات", details: error.message });
@@ -25,7 +25,7 @@ router.get("/read-deposit", async (req, res) => {
 
 router.get("/read-withdraw", async (req, res) => {
   try {
-    const withdraw = await Withdraw.find();
+    const withdraw = await Withdraw.find().sort({ createdAt: -1 });
     res.status(200).json(withdraw);
   } catch (error) {
     res.status(500).json({ error: "خطأ في عرض البيانات", details: error.message });
@@ -34,7 +34,7 @@ router.get("/read-withdraw", async (req, res) => {
 
 router.get("/read-transfer", async (req, res) => {
   try {
-    const transfer = await Transfer.find();
+    const transfer = await Transfer.find().sort({ createdAt: -1 });
     res.status(200).json(transfer);
   } catch (error) {
     res.status(500).json({ error: "خطأ في عرض البيانات", details: error.message });
@@ -47,7 +47,6 @@ const getMonthRange = (year, month) => {
   const endOfMonth = moment(`${year}-${month}-01`).endOf("month").toDate();
   return { startOfMonth, endOfMonth };
 };
-
 router.get("/monthly-transactions", async (req, res) => {
   try {
     let { month, year } = req.query;

@@ -6,7 +6,7 @@ const { authenticate, } = require('../middlewares/authMiddleware');
 // =========================================== GET ===========================================
 router.get('/read-bills', async (req, res) => {
   try {
-    const bills = await Bill.find();
+    const bills = await Bill.find().sort({ createdAt: -1 });
     res.status(200).json(bills);
   } catch (err) {
     res.status(500).json({ message: 'Error fetching job orders', error: err.message });

@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { Safe, Withdraw, } = require("../models/transaction.js")
 const { Dealer, } = require("../models/dealer");
-
+const upload = require("../middlewares/uploads")
+const fs = require('fs');   
+const path = require('path');
 
 // اضافة الطلبات امر الشغل
 router.post('/add-dealer', async (req, res) => {
@@ -175,7 +177,85 @@ router.put("/edit-service/:dealerId/:serviceId", async (req, res) => {
   }
 });
 
+/*
+// تحديث الخدمة مع إمكانية تغيير الصورة
+router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), async (req, res) => {
+  try {
+    const { dealerId, serviceId } = req.params;
+    const updatedServiceData = req.body;
+    let updateFields = {};
 
+    // تجهيز البيانات التي سيتم تحديثها
+    Object.keys(updatedServiceData).forEach((key) => {
+      if (updatedServiceData[key] !== undefined && updatedServiceData[key] !== "") {
+        updateFields[`typeService.$.${key}`] = updatedServiceData[key];
+      }
+    });
+
+    // التحقق مما إذا كان هناك صورة جديدة مرفوعة
+    if (req.file) {
+      // العثور على التاجر لمعرفة الصورة القديمة
+      const dealer = await Dealer.findOne({ _id: dealerId, "typeService._id": serviceId });
+
+      if (!dealer) {
+        return res.status(404).json({ error: "التاجر أو الخدمة غير موجودة" });
+      }
+
+      // البحث عن الخدمة المطلوبة
+      const serviceIndex = dealer.typeService.findIndex((s) => s._id.toString() === serviceId);
+      if (serviceIndex === -1) {
+        return res.status(404).json({ error: "الخدمة غير موجودة" });
+      }
+
+      // حذف الصورة القديمة إذا وجدت
+      const service = dealer.typeService[serviceIndex];
+      if (service.imageName) {
+        const oldImagePath = path.join(__dirname, "../images", service.imageName);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+
+      // تحديث الصورة الجديدة
+      updateFields[`typeService.${serviceIndex}.serviceImage`] = req.file.path; // تحديث المسار للصورة الجديدة
+      updateFields[`typeService.${serviceIndex}.imageName`] = req.file.filename; // تحديث اسم الصورة
+    }
+
+    // التأكد من وجود بيانات للتحديث
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ error: "لم يتم إرسال بيانات لتحديثها" });
+    }
+
+    // تحديث القيم المحددة داخل typeService
+    let dealer = await Dealer.findOneAndUpdate(
+      { _id: dealerId, "typeService._id": serviceId },
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!dealer) {
+      return res.status(404).json({ error: "التاجر أو الخدمة غير موجودة" });
+    }
+
+    // إعادة حساب totalPriceBuy و totalPriceSell بعد التعديل
+    dealer.totalPriceBuy = dealer.typeService.reduce(
+      (acc, item) => acc + ((item.servicePriceBuy || 0) * (item.count || 1)), 0
+    );
+    dealer.totalPriceSell = dealer.typeService.reduce(
+      (acc, item) => acc + ((item.servicePriceSell || 0) * (item.count || 1)), 0
+    );
+    dealer.theRest = dealer.totalPriceBuy - dealer.payed;
+
+    // حفظ التعديلات بعد الحسابات الجديدة
+    await dealer.save();
+
+    res.status(200).json({ message: "تم تعديل الخدمة بنجاح", dealer });
+  } catch (error) {
+    console.error("خطأ أثناء تعديل الخدمة:", error);
+    res.status(500).json({ error: "حدث خطأ أثناء تعديل الخدمة" });
+  }
+});
+*/
 
 
 // عرض جميع التجار
@@ -190,10 +270,10 @@ router.get('/read-dealer', async (req, res) => {
 });
 
 router.get("/read-dealer/:itemId", async (req, res) => {
-    const { itemId } = req.params; // الحصول على الـ itemId من الـ params
+    const { itemId } = req.params;
   
     try {
-      const dealer = await Dealer.findById(itemId); // استرجاع الـ dealer بناءً على الـ _id
+      const dealer = await Dealer.findById(itemId);
       if (!dealer) {
         return res.status(404).json({ message: "Dealer not found" });
       }
