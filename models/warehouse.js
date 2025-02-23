@@ -18,13 +18,14 @@ const productSchema = new mongoose.Schema({
 //income
 const incomeSchema = new mongoose.Schema({
   code: { type: Number, required: true, },
+  billnumber: { type: String,},
   category: { type: String, required: true, },
   brand: { type: String, required: true, },
   quantity: { type: Number, required: true, },
   price: { type: Number, required: true, },
   total: { type: Number, required: true, },
-  seller: { type: String,  },
-  sellerphone: { type: Number,  },
+  dealerName: { type: String,  },
+  createdAt: { type: Date, default: Date.now, },
   date: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')
@@ -43,6 +44,7 @@ const outgoSchema = new mongoose.Schema({
   total: { type: Number,  },
   buyer: { type: String },
   buyerphone: { type: Number },
+  createdAt: { type: Date, default: Date.now, },
   date: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')
@@ -52,14 +54,15 @@ const outgoSchema = new mongoose.Schema({
 //return 
 const returnincomeSchema = new mongoose.Schema({
   code: { type: Number, required: true,},
+  billnumber: { type: String, },
   category: { type: String, required: true },
   brand: { type: String, required: true },
   quantity: { type: Number, required: true },
   price: { type: Number, required: true },
   total: { type: Number, required: true },
-  seller: { type: String, },
-  sellerphone: { type: Number, },
+  dealerName: { type: String, },
   reason: { type: String },
+  createdAt: { type: Date, default: Date.now, },
   date: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')
@@ -70,15 +73,16 @@ const returnincomeSchema = new mongoose.Schema({
 //return outgo
 const returnoutgoSchema = new mongoose.Schema({
   code: { type: Number, required: true,},
-  billnumber: { type: Number, },
+  billnumber: { type: String, },
   category: { type: String, },
   brand: { type: String, },
   quantity: { type: Number,  },
   price: { type: Number,  },
   total: { type: Number, },
-  buyer: { type: String,  },
-  buyerphone: { type: Number,  },
+  buyer: { type: String },
+  buyerphone: { type: Number },
   reason: { type: String },
+  createdAt: { type: Date, default: Date.now, },
   date: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')

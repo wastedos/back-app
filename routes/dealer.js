@@ -129,7 +129,7 @@ router.put("/edit-dealer/:id", async (req, res) => {
   }
 });
 
-//
+/*
 router.put("/edit-service/:dealerId/:serviceId", async (req, res) => {
   try {
     const { dealerId, serviceId } = req.params;
@@ -176,8 +176,8 @@ router.put("/edit-service/:dealerId/:serviceId", async (req, res) => {
     res.status(500).json({ error: "حدث خطأ أثناء تعديل الخدمة" });
   }
 });
+*/
 
-/*
 // تحديث الخدمة مع إمكانية تغيير الصورة
 router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), async (req, res) => {
   try {
@@ -255,13 +255,14 @@ router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), 
     res.status(500).json({ error: "حدث خطأ أثناء تعديل الخدمة" });
   }
 });
-*/
+
 
 
 // عرض جميع التجار
 router.get('/read-dealer', async (req, res) => {
     try {
       const dealers = await Dealer.find(); // جلب كل التجار من قاعدة البيانات
+      console.log("✅ بيانات التجار:", dealers);
       res.status(200).json(dealers); // إرسال التجار كـ response
     } catch (err) {
       console.error('يوجد خطاء في جلب التجار:', err);

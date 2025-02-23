@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const jobOrderSchema = new mongoose.Schema({
   Jobid: { type: Number, },
   clientName: { type: String, required: true },
-  clientPhone: { type: String, required: true },
+  clientPhone: { type: String, },
   carModel: { type: String, required: true },
-  carColor: { type: String, required: true },
+  carColor: { type: String, },
   chassis: { type: String, },
   carKm: { type: String, },
   jobs: [
@@ -47,10 +47,17 @@ const jobOrderSchema = new mongoose.Schema({
       otherPrice: { type: Number, },
     },
   ],
+  payed: [
+    {
+      payment: { type: String, },
+      payedPrice: { type: Number, },
+    },
+  ],
   payment: { type: String, },
   invoice: { type: Number, },
   discount: { type: Number, },
   total: { type: Number, },
+  theRest: { type: Number, },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -82,9 +89,11 @@ jobOrderSchema.pre('save', async function (next) {
   const newPartsTotal = this.newparts.reduce((sum, part) => sum + (part.quantity * part.pricesell || 0), 0);
   const outjobTotal = this.outjob.reduce((sum, job) => sum + (job.jobPriceSell || 0), 0);
   const otherTotal = this.other.reduce((sum, item) => sum + (item.otherPrice || 0), 0);
+  const payedTotal = this.payed.reduce((sum, item) => sum + (item.payedPrice || 0), 0);
 
   // Calculate the grand total
   this.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + this.invoice - (this.discount || 0);
+  this.theRest = this.total - payedTotal
   next();
 });
 

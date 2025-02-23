@@ -47,6 +47,13 @@ const BillsSchema = new mongoose.Schema({
       otherPrice: { type: Number, },
     },
   ],
+  payed: [
+    {
+      payment: { type: String, },
+      payedPrice: { type: Number, },
+    },
+  ],
+  theRest: { type: Number, },
   payment: { type: String, required: true },
   invoice: { type: Number,  },
   discount: { type: Number, },

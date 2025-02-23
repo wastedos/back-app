@@ -30,6 +30,7 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { nam
       parts: req.body.parts ? JSON.parse(req.body.parts) : [],
       outjob: req.body.outjob ? JSON.parse(req.body.outjob) : [],
       other: req.body.other ? JSON.parse(req.body.other) : [],
+      payed: req.body.payed ? JSON.parse(req.body.payed) : [],
       newparts: req.body.newparts ? JSON.parse(req.body.newparts) : [],
     };
 
@@ -45,11 +46,35 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { nam
       newOrderData.outjob.forEach((out, index) => {
         out.imageName = req.files['outjobImage'][index]?.filename; // تعيين اسم الملف للوظيفة
       });
-    }
+    }    
 
     // إنشاء الطلب الجديد وحفظه
     const newOrder = new JobOrder(newOrderData);
     await newOrder.save();
+
+    // 🔥 إضافة المدفوعات إلى السيف (Deposit) تلقائيًا
+    if (newOrder.payed.length > 0) {
+      await Promise.all(newOrder.payed.map(async (payed) => {
+        const payedAmount = parseFloat(payed.payedPrice) || 0;
+
+        // ✅ إضافة الدفع إلى Deposit
+        const AddtoDeposit = new Deposit({
+          typeSafe: payed.payment,
+          amountDeposit: payedAmount,
+          reasonDeposit: `دفعة من أمر شغل بي اسم - (${req.body.clientName})`,
+        });
+
+        await AddtoDeposit.save();
+
+        // ✅ تحديث `Safe` لكل دفعة على حدة
+        await Safe.findOneAndUpdate(
+          { typeSafe: payed.payment }, // تحديث السيف بناءً على نوع الدفع
+          { $inc: { amountSafe: payedAmount } }, // زيادة مبلغ السيف بالدفعة الحالية
+          { new: true, upsert: true } // إنشاء سجل جديد إذا لم يكن موجودًا
+        );
+      }));
+    }
+
 
     res.status(201).json({ message: "✅ Job order added successfully", newOrder });
   } catch (err) {
@@ -58,28 +83,8 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { nam
   }
 });
 
-/*
-router.post('/image', upload.single("image"), (req, res) => {
-  res.status(200).json({message: "image uploaded"})
-})
-*/
 
-/*
-// اضافة الطلبات امر الشغل
-router.post('/add', async (req, res) => {
-  try {
-    console.log('Received data:', req.body); // طباعة البيانات الواردة للتصحيح
-    const newOrder = new JobOrder(req.body);
-    await newOrder.save();
-
-    res.status(201).json({ message: 'Job order added successfully' });
-  } catch (err) {
-    console.error('Error saving job order:', err);
-    res.status(500).json({ error: 'Failed to save job order' });
-  }
-});*/
-
-
+// update joborder byid
 router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { name: 'outjobImage', maxCount: 5 }]), async (req, res) => {
   try {
     console.log("✅ Received body:", req.body);
@@ -143,6 +148,7 @@ router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount:
       parts: req.body.parts ? JSON.parse(req.body.parts) : existingOrder.parts,
       outjob: req.body.outjob ? JSON.parse(req.body.outjob) : existingOrder.outjob,
       other: req.body.other ? JSON.parse(req.body.other) : existingOrder.other,
+      payed: req.body.payed ? JSON.parse(req.body.payed) : existingOrder.payed,
       newparts: req.body.newparts ? JSON.parse(req.body.newparts) : existingOrder.newparts,
     };
 
@@ -164,16 +170,44 @@ router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount:
 
     // 6. إعادة حساب الإجمالي
     const calculateTotal = (arr, key, multiplier = 1) => arr.reduce((sum, item) => sum + ((item[key] || 0) * (item[multiplier] || 1)), 0);
-
     const partsTotal = calculateTotal(updatedOrder.parts, "price", "quantity");
     const newPartsTotal = calculateTotal(updatedOrder.newparts, "pricesell", "quantity");
     const outjobTotal = calculateTotal(updatedOrder.outjob, "jobPriceSell");
     const otherTotal = calculateTotal(updatedOrder.other, "otherPrice");
+    const payedTotal = calculateTotal(updatedOrder.payed, "payedPrice");
 
     updatedOrder.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + (updatedOrder.invoice || 0) - (updatedOrder.discount || 0);
-
+    updatedOrder.theRest = updatedOrder.total - payedTotal
     // 7. حفظ التعديلات
     await updatedOrder.save();
+
+    // 8. إضافة آخر دفعة فقط إلى `Deposit` وتحديث `Safe`
+    const oldPayedCount = existingOrder.payed.length;
+    const newPayedCount = updatedOrder.payed.length;
+
+    if (newPayedCount > oldPayedCount) {
+      const latestPayed = updatedOrder.payed[newPayedCount - 1]; // آخر دفعة مضافة فقط
+
+      if (latestPayed) {
+        const payedAmount = parseFloat(latestPayed.payedPrice) || 0;
+
+        // ✅ إضافة الدفع إلى Deposit
+        const AddtoDeposit = new Deposit({
+          typeSafe: latestPayed.payment,
+          amountDeposit: payedAmount,
+          reasonDeposit: `دفعة من أمر شغل بي اسم - (${req.body.clientName})`,
+        });
+
+        await AddtoDeposit.save();
+
+        // ✅ تحديث `Safe` فقط بهذه الدفعة
+        await Safe.findOneAndUpdate(
+          { typeSafe: latestPayed.payment },  
+          { $inc: { amountSafe: payedAmount } }, 
+          { new: true, upsert: true }
+        );
+      }
+    }
 
     res.status(200).json({ message: '✅ Job order updated successfully', updatedOrder });
   } catch (err) {
@@ -181,6 +215,7 @@ router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount:
     res.status(500).json({ message: 'Error updating job order', error: err.message });
   }
 });
+
 
 // =============================> حذف طلب تشغيل عند إصدار فاتورة <=============================
 router.delete('/bills-byid/:id', async (req, res) => {
@@ -224,9 +259,11 @@ router.delete('/bills-byid/:id', async (req, res) => {
       outjob: jobOrder.outjob,
       other: jobOrder.other,
       payment: jobOrder.payment,
+      payed: jobOrder.payed,
       invoice: jobOrder.invoice,
       discount: jobOrder.discount,
       total: jobOrder.total,
+      theRest: jobOrder.theRest,
       createdAt: jobOrder.createdAt,
     });
     await newBill.save(); // حفظ الفاتورة في مجموعة bills
@@ -261,14 +298,14 @@ router.delete('/bills-byid/:id', async (req, res) => {
     // إضافة الأموال إلى السيف
     const AddtoDeposit = new Deposit({
       typeSafe: jobOrder.payment,
-      amountDeposit: jobOrder.total,
+      amountDeposit: jobOrder.theRest,
       reasonDeposit: `حساب فاتورة رقم ${newJobid || 0}`,
     });
     await AddtoDeposit.save();
 
     const AddtoSafe = await Safe.findOneAndUpdate(
       { typeSafe: jobOrder.payment }, // البحث حسب نوع السيف
-      { $inc: { amountSafe: jobOrder.total } }, // زيادة المبلغ الحالي
+      { $inc: { amountSafe: jobOrder.theRest } }, // زيادة المبلغ الحالي
       { new: true, upsert: true } // إنشاء مستند جديد إذا لم يكن موجودًا
     );
 
@@ -277,6 +314,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
     for (const job of jobOrder.outjob) {
       let dealer = await Dealer.findOne({ dealerName: job.dealerName });
 
+      /*
       if (!dealer) {
         // إذا لم يكن التاجر موجودًا، نقوم بإنشائه
         dealer = new Dealer({
@@ -285,7 +323,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
           service: 'أعمال خارجية',
           typeService: [],
         });
-      }
+      }*/
 
       // إضافة الخدمة إلى `typeService`
       dealer.typeService.push({
@@ -303,6 +341,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
     for (const part of jobOrder.newparts) {
       let dealer = await Dealer.findOne({ dealerName: part.dealerName });
 
+      /*
       if (!dealer) {
         // إذا لم يكن التاجر موجودًا، نقوم بإنشائه
         dealer = new Dealer({
@@ -311,7 +350,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
           service: 'قطع استيراد',
           typeService: [],
         });
-      }
+      }*/
 
       // إضافة القطعة إلى `typeService`
       dealer.typeService.push({
