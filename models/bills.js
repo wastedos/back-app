@@ -27,8 +27,8 @@ const BillsSchema = new mongoose.Schema({
       category: { type: String, },
       dealerName: { type: String, },
       quantity: { type: Number, },
-      pricesell: { type: Number, },
       pricebuy: { type: Number, },
+      pricesell: { type: Number, },
       imageName: { type: String, },
     },
   ],
@@ -58,11 +58,11 @@ const BillsSchema = new mongoose.Schema({
   invoice: { type: Number,  },
   discount: { type: Number, },
   total: { type: Number, },
+  date:{ type: String,default: () => moment().format('MM-DD-YYYY') },
   createdAt: {
-    type: String,
-    default: () => moment().format('MM-DD-YYYY')
+    type: Date,
+    default: Date.now,
   }
 });
-
 
 module.exports = mongoose.model('Bills', BillsSchema);

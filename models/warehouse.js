@@ -4,6 +4,7 @@ const moment = require('moment');
 //product
 const productSchema = new mongoose.Schema({
   code: { type: Number, required: true, unique: true},
+  carModel: { type: String},
   category: { type: String,},
   brand: { type: String, },
   income: { type: Number },
@@ -19,6 +20,7 @@ const productSchema = new mongoose.Schema({
 const incomeSchema = new mongoose.Schema({
   code: { type: Number, required: true, },
   billnumber: { type: String,},
+  carModel: { type: String},
   category: { type: String, required: true, },
   brand: { type: String, required: true, },
   quantity: { type: Number, required: true, },
@@ -36,6 +38,7 @@ const incomeSchema = new mongoose.Schema({
 const outgoSchema = new mongoose.Schema({
   code: { type: String, required: true, },
   billnumber: { type: String,},
+  carModel: { type: String},
   category: { type: String, },
   brand: { type: String,  },
   quantity: { type: Number, },
@@ -55,6 +58,7 @@ const outgoSchema = new mongoose.Schema({
 const returnincomeSchema = new mongoose.Schema({
   code: { type: Number, required: true,},
   billnumber: { type: String, },
+  carModel: { type: String},
   category: { type: String, required: true },
   brand: { type: String, required: true },
   quantity: { type: Number, required: true },
@@ -74,6 +78,7 @@ const returnincomeSchema = new mongoose.Schema({
 const returnoutgoSchema = new mongoose.Schema({
   code: { type: Number, required: true,},
   billnumber: { type: String, },
+  carModel: { type: String},
   category: { type: String, },
   brand: { type: String, },
   quantity: { type: Number,  },

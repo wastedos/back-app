@@ -13,7 +13,7 @@ const SafeSchema = new mongoose.Schema({
     min: [0, 'Amount must be positive']
   },
   branch : { type: String, },
-  createdAt: { type: Date, default: () => moment().format('MM-DD-YYYY'), },
+  createdAt: { type: Date, default: Date.now },
   formatDate: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')
@@ -29,7 +29,7 @@ const DepositSchema = new mongoose.Schema({
   },
   reasonDeposit: { type: String },
   branch : { type: String, },
-  createdAt: { type: Date, default: () => moment().format('MM-DD-YYYY'), },
+  createdAt: { type: Date, default: Date.now },
   formatDate: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')
@@ -47,7 +47,7 @@ const WithdrawSchema = new mongoose.Schema({
   payee: { type: String, },
   reasonWithdraw: { type: String },
   branch : { type: String, },
-  createdAt: { type: Date, default: () => moment().format('MM-DD-YYYY'), },
+  createdAt: { type: Date, default: Date.now },
   formatDate: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')
@@ -72,7 +72,7 @@ const TransferSchema = new mongoose.Schema({
   },
   reasonTransfer: { type: String },
   branch : { type: String, },
-  createdAt: { type: Date, default: () => moment().format('MM-DD-YYYY'), },
+  createdAt: { type: Date, default: Date.now },
   formatDate: {
     type: String,
     default: () => moment().format('MM-DD-YYYY')

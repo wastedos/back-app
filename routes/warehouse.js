@@ -6,18 +6,19 @@ const router = express.Router();
 /* ===================================== POST ===================================== */
 // Add income
 router.post("/add-income", async (req, res) => {
-  const { code, category, brand, quantity, price, dealerName, } = req.body;
+  const { code, billnumber, carModel, category, brand, quantity, price, dealerName, } = req.body;
 
-  const lastBill = await Income.findOne().sort({ billnumber: -1 });
-  let newBill = lastBill ? Number(lastBill.billnumber) + 1 : 1;
 
   try {
+    const existingProduct = await Product.findOne({ code });
+
     // إضافة سجل الدخل
     const income = new Income({
       code,
-      billnumber: newBill,
-      category,
-      brand,
+      billnumber,
+      carModel: existingProduct ? existingProduct.carModel : carModel,
+      category: existingProduct ? existingProduct.category : category,
+      brand: existingProduct ? existingProduct.brand : brand,
       quantity,
       price,
       total: quantity * price,
@@ -27,16 +28,16 @@ router.post("/add-income", async (req, res) => {
 
     const dealer = await Dealer.findOne({ dealerName });
     dealer.typeService.push({
-      type: category,
+      type: existingProduct ? existingProduct.category : category,
       count: quantity,
       servicePriceBuy: price,
       servicePriceSell: 0,
+      code: code,
       billNumber: income.billnumber,
     });
     await dealer.save();
 
     // فحص إذا كان المنتج موجودًا
-    const existingProduct = await Product.findOne({ code });
     if (existingProduct) {
       // إذا كان المنتج موجودًا، نقوم بتحديث الكمية والدخل
       existingProduct.quantity += Number(quantity);
@@ -51,6 +52,7 @@ router.post("/add-income", async (req, res) => {
       const newProduct = new Product({
         code,
         category,
+        carModel,
         brand,
         income: quantity,
         outgo: 0,
@@ -69,6 +71,7 @@ router.post("/add-income", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // Add Return Income
 router.post("/add-returnIncome", async (req, res) => {
@@ -94,6 +97,7 @@ router.post("/add-returnIncome", async (req, res) => {
     // إنشاء سجل العائد
     const returnincome = new ReturnIncome({
       code,
+      carModel: existingProduct.carModel,
       category: existingProduct.category,
       brand: existingProduct.brand,
       quantity,
@@ -150,6 +154,7 @@ router.post("/add-outgo", async (req, res) => {
         // إضافة سجل outgo مع تفاصيله
         const outgo = new Outgo({
           code,
+          carModel: existingProduct.carModel,
           category: existingProduct.category,
           brand: existingProduct.brand,
           quantity,
@@ -213,6 +218,7 @@ router.post("/add-returnoutgo", async (req, res) => {
 
     const returnoutgo = new ReturnOutgo({
       code,
+      carModel: existingProduct.carModel,
       category: existingProduct.category,
       brand: existingProduct.brand,
       quantity,
@@ -409,21 +415,56 @@ router.put("/update-returnOutgo/:id", async (req, res) => {
 
 
 /* ===================================== DELETE ===================================== */
-//Delete income by id
+// Delete income by id
 router.delete("/delete-income/:id", async (req, res) => {
   try {
     console.log("Request Params:", req.params);
 
-    const income = await Income.findByIdAndDelete(req.params.id);
+    // البحث عن سجل الدخل قبل الحذف
+    const income = await Income.findById(req.params.id);
     if (!income) {
       return res.status(404).json({ message: "Item not found" });
     }
-    res.status(200).json({ message: "Item deleted successfully" });
+
+    // تحديث الكمية في المنتج
+    const existingProduct = await Product.findOne({ code: income.code });
+    if (existingProduct) {
+      existingProduct.quantity -= income.quantity; // خصم الكمية المحذوفة
+      existingProduct.income -= income.quantity;
+      existingProduct.total = existingProduct.quantity * existingProduct.price; // تحديث الإجمالي
+
+      await existingProduct.save()
+    }
+
+    // تحديث dealer (إزالة الخدمة المرتبطة بالفاتورة)
+    const dealer = await Dealer.findOne({ dealerName: income.dealerName });
+    if (dealer) {
+      console.log("Dealer before update:", dealer.typeService);
+
+      // هنا نحتاج لتحديد الخدمة المحددة التي نريد حذفها
+      const serviceToRemove = dealer.typeService.find(service => service.billNumber === income.billnumber && service.type === income.category);
+      
+      if (serviceToRemove) {
+        dealer.typeService = dealer.typeService.filter(service => service !== serviceToRemove);
+        await dealer.save();
+        console.log("Updated dealer typeService:", dealer.typeService);
+      } else {
+        console.log(`Service not found for billNumber ${income.billnumber} and category ${income.category}.`);
+      }
+    } else {
+      console.log(`Dealer with name ${income.dealerName} not found.`);
+    }
+
+    // حذف سجل الدخل بعد التحديثات
+    await Income.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({ message: "Income deleted and product updated successfully." });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ message: error.message });
   }
 });
+
 
 //Delete outgo by id
 router.delete("/delete-outgo/:id", async (req, res) => {
@@ -434,6 +475,18 @@ router.delete("/delete-outgo/:id", async (req, res) => {
     if (!outgo) {
       return res.status(404).json({ message: "Item not found" });
     }
+
+    // تحديث الكمية في المنتج
+    const existingProduct = await Product.findOne({ code: outgo.code });
+    if (existingProduct) {
+      existingProduct.quantity += outgo.quantity; // خصم الكمية المحذوفة
+      existingProduct.outgo -= outgo.quantity;
+      existingProduct.total = existingProduct.quantity * existingProduct.price; // تحديث الإجمالي
+
+      await existingProduct.save()
+    }
+
+
     res.status(200).json({ message: "Item deleted successfully" });
   } catch (error) {
     console.error("Error:", error);
@@ -474,7 +527,6 @@ router.delete("/delete-returnOutgo/:id", async (req, res) => {
 }); 
 
 /* ===================================== OTHER ===================================== */
-
 
 
 

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Safe, Withdraw, } = require("../models/transaction.js")
 const { Dealer, } = require("../models/dealer");
+const Bill = require('../models/bills');
 const upload = require("../middlewares/uploads")
 const fs = require('fs');   
 const path = require('path');
@@ -249,7 +250,38 @@ router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), 
     // حفظ التعديلات بعد الحسابات الجديدة
     await dealer.save();
 
-    res.status(200).json({ message: "تم تعديل الخدمة بنجاح", dealer });
+
+    // =============== تحديث الفاتورة بناءً على billNumber ===============
+    const services = dealer.typeService.find((s) => s._id.toString() === serviceId);
+    if (!services || !services.billNumber) {
+      return res.status(404).json({ error: "لم يتم العثور على رقم الفاتورة المرتبط بالخدمة" });
+    }
+    // البحث عن الفاتورة المرتبطة بالخدمة
+    let bills = await Bill.findOne({ Jobid: services.billNumber });
+    if (!bills) {
+      return res.status(404).json({ error: "لم يتم العثور على الفاتورة المرتبطة بالخدمة" });
+    }
+
+    bills.newparts = bills.newparts.map((p) => {
+      if (p.dealerName.trim() === dealer.dealerName.trim()) {
+        return { ...p, pricebuy: services.servicePriceBuy || 0, quantity: services.count || 1 };
+      }
+      return p;
+    });
+    
+    bills.outjob = bills.outjob.map((j) => {
+      if (j.dealerName.trim() === dealer.dealerName.trim()) {
+        return { ...j, jobPriceBuy: services.servicePriceBuy || 0 };
+      }
+      return j;
+    });
+    
+    bills.markModified("newparts");
+    bills.markModified("outjob");
+    await bills.save();
+
+
+    res.status(200).json({ message: "تم تعديل الخدمة بنجاح", dealer, bills });
   } catch (error) {
     console.error("خطأ أثناء تعديل الخدمة:", error);
     res.status(500).json({ error: "حدث خطأ أثناء تعديل الخدمة" });
@@ -272,7 +304,7 @@ router.get('/read-dealer', async (req, res) => {
 
 router.get("/read-dealer/:itemId", async (req, res) => {
     const { itemId } = req.params;
-  
+    console.log(itemId)
     try {
       const dealer = await Dealer.findById(itemId);
       if (!dealer) {
@@ -328,20 +360,21 @@ router.delete("/delete-dealer/:id", async (req, res) => {
   }
 });
 
-router.delete("/delete-service/:dealerId/:serviceIndex", async (req, res) => {
+router.delete("/delete-service/:dealerId/:serviceId", async (req, res) => {
   try {
-    const { dealerId, serviceIndex } = req.params;
+    const { dealerId, serviceId } = req.params;
 
     // جلب بيانات الـ dealer
     const dealer = await Dealer.findById(dealerId);
     if (!dealer) return res.status(404).json({ message: "Dealer not found" });
 
-    // التحقق إن الخدمة موجودة
-    if (serviceIndex < 0 || serviceIndex >= dealer.typeService.length) {
-      return res.status(400).json({ message: "Invalid service index" });
+    // البحث عن الخدمة المطلوبة داخل typeService
+    const serviceIndex = dealer.typeService.findIndex(item => item._id.toString() === serviceId);
+    if (serviceIndex === -1) {
+      return res.status(404).json({ message: "Service not found" });
     }
 
-    // حذف الخدمة المحددة من typeService
+    // حذف الخدمة المحددة
     dealer.typeService.splice(serviceIndex, 1);
 
     // تحديث الحسابات
@@ -358,6 +391,7 @@ router.delete("/delete-service/:dealerId/:serviceIndex", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 

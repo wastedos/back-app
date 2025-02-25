@@ -75,7 +75,6 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { nam
       }));
     }
 
-
     res.status(201).json({ message: "✅ Job order added successfully", newOrder });
   } catch (err) {
     console.error("❌ Error saving job order:", err);
@@ -282,6 +281,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
       const outgo = new Outgo({
         code: product.code,
         billnumber: newJobid || 0,
+        carModel: product.carModel,
         category: product.category,
         brand: product.brand,
         quantity: part.quantity,
