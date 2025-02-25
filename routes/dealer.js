@@ -253,35 +253,51 @@ router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), 
 
     // =============== تحديث الفاتورة بناءً على billNumber ===============
     const services = dealer.typeService.find((s) => s._id.toString() === serviceId);
+
     if (!services || !services.billNumber) {
       return res.status(404).json({ error: "لم يتم العثور على رقم الفاتورة المرتبط بالخدمة" });
     }
-    // البحث عن الفاتورة المرتبطة بالخدمة
-    let bills = await Bill.findOne({ Jobid: services.billNumber });
-    if (!bills) {
-      return res.status(404).json({ error: "لم يتم العثور على الفاتورة المرتبطة بالخدمة" });
+    // التأكد من أن billNumber هو سلسلة نصية
+    const billNumber = services.billNumber.toString().trim();
+    // التحقق من أن billNumber يتكون من أرقام فقط
+    if (!/^\d+$/.test(billNumber)) {
+      console.log("رقم الفاتورة غير صحيح، سيتم تجاهل الخطأ.");
+    } else {
+      // البحث عن الفاتورة المرتبطة بالخدمة
+      let bills = await Bill.findOne({ Jobid: billNumber });
+      
+      if (bills) {
+        // تحديث الأجزاء الجديدة
+        bills.newparts = bills.newparts.map((p) => {
+          if (p.dealerName.trim() === dealer.dealerName.trim()) {
+            return { ...p, pricebuy: services.servicePriceBuy || 0, quantity: services.count || 1 };
+          }
+          return p;
+        });
+
+        // تحديث الوظائف الخارجية
+        bills.outjob = bills.outjob.map((j) => {
+          if (j.dealerName.trim() === dealer.dealerName.trim()) {
+            return { ...j, jobPriceBuy: services.servicePriceBuy || 0 };
+          }
+          return j;
+        });
+
+        // تأشير الفاتورة كمعدلة
+        bills.markModified("newparts");
+        bills.markModified("outjob");
+
+        // حفظ الفاتورة
+        await bills.save();
+      } else {
+        console.log("لم يتم العثور على الفاتورة المرتبطة بالخدمة، سيتم المتابعة بدون تعديل.");
+      }
     }
 
-    bills.newparts = bills.newparts.map((p) => {
-      if (p.dealerName.trim() === dealer.dealerName.trim()) {
-        return { ...p, pricebuy: services.servicePriceBuy || 0, quantity: services.count || 1 };
-      }
-      return p;
-    });
-    
-    bills.outjob = bills.outjob.map((j) => {
-      if (j.dealerName.trim() === dealer.dealerName.trim()) {
-        return { ...j, jobPriceBuy: services.servicePriceBuy || 0 };
-      }
-      return j;
-    });
-    
-    bills.markModified("newparts");
-    bills.markModified("outjob");
-    await bills.save();
 
 
-    res.status(200).json({ message: "تم تعديل الخدمة بنجاح", dealer, bills });
+
+    res.status(200).json({ message: "تم تعديل الخدمة بنجاح" });
   } catch (error) {
     console.error("خطأ أثناء تعديل الخدمة:", error);
     res.status(500).json({ error: "حدث خطأ أثناء تعديل الخدمة" });
