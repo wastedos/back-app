@@ -260,6 +260,18 @@ router.get("/read-product", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+router.get("/read-product/:code", async (req, res) => {
+  try {
+    const product = await Product.findOne({ code: req.params.code });
+    if (!product) {
+      return res.status(404).json({ message: "لم يتم العثور على المنتج" });
+    }
+    res.status(200).json(product);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 
 // Read all income
 router.get("/read-income", async (req, res) => {
@@ -291,8 +303,6 @@ router.get("/read-returnincome", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
-
 // Read all outgo
 router.get("/read-outgo", async (req, res) => {
   try {

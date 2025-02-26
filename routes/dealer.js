@@ -267,9 +267,10 @@ router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), 
       let bills = await Bill.findOne({ Jobid: billNumber });
       
       if (bills) {
+
         // تحديث الأجزاء الجديدة
         bills.newparts = bills.newparts.map((p) => {
-          if (p.dealerName.trim() === dealer.dealerName.trim()) {
+          if (p.dealerName.trim() === dealer.dealerName.trim() && p.category === services.type) {
             return { ...p, pricebuy: services.servicePriceBuy || 0, quantity: services.count || 1 };
           }
           return p;
@@ -277,7 +278,7 @@ router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), 
 
         // تحديث الوظائف الخارجية
         bills.outjob = bills.outjob.map((j) => {
-          if (j.dealerName.trim() === dealer.dealerName.trim()) {
+          if (j.dealerName.trim() === dealer.dealerName.trim() && j.jobName === services.type) {
             return { ...j, jobPriceBuy: services.servicePriceBuy || 0 };
           }
           return j;

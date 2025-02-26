@@ -42,6 +42,7 @@ router.get('/read-bill', async (req, res) => {
             sellOutJobsTotal: 0,
             otherTotal: 0,
             invoiceTotal: 0,
+            discountTotal: 0,
         };
 
         // تحليل كل الفواتير وجمع القيم
@@ -64,12 +65,15 @@ router.get('/read-bill', async (req, res) => {
             // جمع إجمالي other
             totals.otherTotal += bill.other.reduce((total, other) => total + (other.otherPrice || 0), 0);
 
+            //اجمالي المصنعيات
+            totals.discountTotal += bill.discount ? bill.discount : 0;
+
             // جمع إجمالي المصنعيات
             totals.invoiceTotal += bill.invoice ? bill.invoice : 0;
         });
 
         // حساب الإجماليات النهائية
-        const totalIncome = totals.sellPartsTotal + totals.sellNewPartsTotal + totals.sellOutJobsTotal + totals.otherTotal + totals.invoiceTotal;
+        const totalIncome = (totals.sellPartsTotal + totals.sellNewPartsTotal + totals.sellOutJobsTotal + totals.otherTotal + totals.invoiceTotal) - totals.discountTotal;
         const totalExpenses = totals.buyNewPartsTotal + totals.buyOutJobsTotal;
         const profit = totalIncome - totalExpenses;
 
@@ -77,6 +81,7 @@ router.get('/read-bill', async (req, res) => {
             totalIncome,
             totalExpenses,
             profit,
+            discountTotal: totals.discountTotal,
             invoiceTotal: totals.invoiceTotal,
             sellPartsTotal: totals.sellPartsTotal,
             buyNewPartsTotal: totals.buyNewPartsTotal,
@@ -85,13 +90,12 @@ router.get('/read-bill', async (req, res) => {
             sellOutJobsTotal: totals.sellOutJobsTotal,
             otherTotal: totals.otherTotal,
         };
-
-        console.log("Fetched totals:", result);
         res.json(result);
     } catch (err) {
         res.status(500).json({ message: 'Error fetching job orders', error: err.message });
     }
 });
+
 
 // Read bills by id
 router.get("/read-bill/:id", async (req, res) => {
@@ -105,6 +109,7 @@ router.get("/read-bill/:id", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 router.get("/user-bills", authenticate, async (req, res) => {
   try {

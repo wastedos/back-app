@@ -36,7 +36,7 @@ mongoose
 
 
 //--------------- Static ---------------
-app.use(express.static(path.join(__dirname, "./images")));
+app.use("/api/images", express.static(path.join(__dirname, "./images")));
 
 
 //--------------- Locations ---------------

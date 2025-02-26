@@ -11,11 +11,11 @@ const dealerSchema = new mongoose.Schema({
     {
       date: { type: String, default: () => moment().format('MM-DD-YYYY')},
       code: { type: String},
+      billNumber: { type: String, },
       type: { type: String, },
       count: { type: Number, },
       servicePriceBuy: { type: Number, },
       servicePriceSell: { type: Number, },
-      billNumber: { type: String, },
       imageName: { type: String, },
     },
   ],
