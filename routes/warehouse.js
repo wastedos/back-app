@@ -254,8 +254,11 @@ router.post("/add-returnoutgo", async (req, res) => {
 // Read all product
 router.get("/read-product", async (req, res) => {
   try {
+
     const product = await Product.find();
-    res.status(200).json(product);
+    const totalSum = product.reduce((sum, product) => sum + (product.total || 0), 0);
+
+    res.status(200).json({product, totalSum});
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -350,6 +353,22 @@ router.get('/warehousechart', async (req, res) => {
 });
 
 /* ===================================== UPDATE ===================================== */
+
+//Update Product by id
+router.put("/update-product/:id", async (req, res) => {
+  try {
+
+    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!product) {
+      return res.status(404).json({ message: "المنتج غير متوفر في المخزن" });
+    }
+    
+    res.status(200).json(product);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
 
 /*
 //Update income by id

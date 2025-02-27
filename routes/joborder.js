@@ -23,7 +23,6 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { nam
       carColor: req.body.carColor,
       carKm: req.body.carKm,
       chassis: req.body.chassis,
-      invoice: req.body.invoice || "",
       discount: req.body.discount || "",
       payment: req.body.payment || "",
       jobs: req.body.jobs ? JSON.parse(req.body.jobs) : [],
@@ -31,6 +30,7 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { nam
       outjob: req.body.outjob ? JSON.parse(req.body.outjob) : [],
       other: req.body.other ? JSON.parse(req.body.other) : [],
       payed: req.body.payed ? JSON.parse(req.body.payed) : [],
+      invoice: req.body.invoice ? JSON.parse(req.body.invoice) : [],
       newparts: req.body.newparts ? JSON.parse(req.body.newparts) : [],
     };
 
@@ -140,7 +140,6 @@ router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount:
       carColor: req.body.carColor,
       carKm: req.body.carKm,
       chassis: req.body.chassis,
-      invoice: req.body.invoice || "",
       discount: req.body.discount || "",
       payment: req.body.payment || "",
       jobs: req.body.jobs ? JSON.parse(req.body.jobs) : existingOrder.jobs,
@@ -148,6 +147,7 @@ router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount:
       outjob: req.body.outjob ? JSON.parse(req.body.outjob) : existingOrder.outjob,
       other: req.body.other ? JSON.parse(req.body.other) : existingOrder.other,
       payed: req.body.payed ? JSON.parse(req.body.payed) : existingOrder.payed,
+      invoice: req.body.invoice ? JSON.parse(req.body.invoice) : existingOrder.invoice,
       newparts: req.body.newparts ? JSON.parse(req.body.newparts) : existingOrder.newparts,
     };
 
@@ -174,8 +174,9 @@ router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount:
     const outjobTotal = calculateTotal(updatedOrder.outjob, "jobPriceSell");
     const otherTotal = calculateTotal(updatedOrder.other, "otherPrice");
     const payedTotal = calculateTotal(updatedOrder.payed, "payedPrice");
+    const invoiceTotal = calculateTotal(updatedOrder.invoice, "invoicePrice");
 
-    updatedOrder.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + (updatedOrder.invoice || 0) - (updatedOrder.discount || 0);
+    updatedOrder.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + invoiceTotal - (updatedOrder.discount || 0);
     updatedOrder.theRest = updatedOrder.total - payedTotal
     // 7. حفظ التعديلات
     await updatedOrder.save();
