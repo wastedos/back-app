@@ -42,32 +42,31 @@ router.get("/read-transfer", async (req, res) => {
 });
 
 
-const getMonthRange = (year, month) => {
-  const startOfMonth = moment(`${year}-${month}-01`).startOf("month").toDate();
-  const endOfMonth = moment(`${year}-${month}-01`).endOf("month").toDate();
-  return { startOfMonth, endOfMonth };
-};
-router.get("/monthly-transactions", async (req, res) => {
+router.get('/monthly-transactions', async (req, res) => {
   try {
-    let { month, year } = req.query;
-    let matchCondition = {}; 
+    const { month, year } = req.query;
+    let filter = {};
 
     if (month && year) {
-      year = parseInt(year, 10);
-      month = parseInt(month, 10);
-      const { startOfMonth, endOfMonth } = getMonthRange(year, month);
-      matchCondition.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
+      const startDate = new Date(`${year}-${month}-01T00:00:00Z`);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + 1); // Adding one month for the end date
+      filter.createdAt = { $gte: startDate, $lt: endDate }; // Query for transactions within the date range
+    } else if (year) {
+      const startDate = new Date(`${year}-01-01T00:00:00Z`);
+      const endDate = new Date(`${year}-12-31T23:59:59Z`);
+      filter.createdAt = { $gte: startDate, $lt: endDate }; // Query for transactions within the year
     }
 
     const allSafes = ["cash", "vodafone", "instapay", "fawry"];
 
     const deposits = await Deposit.aggregate([
-      { $match: matchCondition },
+      { $match: filter },
       { $group: { _id: "$typeSafe", totalDeposit: { $sum: "$amountDeposit" } } }
     ]);
 
     const withdraws = await Withdraw.aggregate([
-      { $match: matchCondition },
+      { $match: filter },
       { $group: { _id: "$typeSafe", totalWithdraw: { $sum: "$amountWithdraw" } } }
     ]);
 
@@ -81,12 +80,16 @@ router.get("/monthly-transactions", async (req, res) => {
       return { _id: safe, totalWithdraw: withdraw ? withdraw.totalWithdraw : 0 };
     });
 
-    res.status(200).json({ deposits: formattedDeposits, withdraws: formattedWithdraws });
+    res.status(200).json({
+      deposits: formattedDeposits,
+      withdraws: formattedWithdraws
+    });
   } catch (error) {
     console.error("Error fetching transactions:", error);
     res.status(500).json({ error: "خطأ في جلب البيانات", details: error.message });
   }
 });
+
 
 
 

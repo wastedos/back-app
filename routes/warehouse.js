@@ -154,6 +154,7 @@ router.post("/add-outgo", async (req, res) => {
         // إضافة سجل outgo مع تفاصيله
         const outgo = new Outgo({
           code,
+          codeCategory: existingProduct.codeCategory,
           carModel: existingProduct.carModel,
           category: existingProduct.category,
           brand: existingProduct.brand,
@@ -218,6 +219,7 @@ router.post("/add-returnoutgo", async (req, res) => {
 
     const returnoutgo = new ReturnOutgo({
       code,
+      codeCategory: existingProduct.codeCategory,
       carModel: existingProduct.carModel,
       category: existingProduct.category,
       brand: existingProduct.brand,
@@ -263,9 +265,21 @@ router.get("/read-product", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 router.get("/read-product/:code", async (req, res) => {
   try {
-    const product = await Product.findOne({ code: req.params.code });
+    const product = await Product.findOne({ code: req.params.code});
+    if (!product) {
+      return res.status(404).json({ message: "لم يتم العثور على المنتج" });
+    }
+    res.status(200).json(product);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+router.get("/read-product-by-codeCategory/:codeCategory", async (req, res) => {
+  try {
+    const product = await Product.findOne({ codeCategory: req.params.codeCategory });
     if (!product) {
       return res.status(404).json({ message: "لم يتم العثور على المنتج" });
     }
@@ -357,12 +371,31 @@ router.get('/warehousechart', async (req, res) => {
 //Update Product by id
 router.put("/update-product/:id", async (req, res) => {
   try {
+    const { code, codeCategory } = req.body;  // استخراج الحقول اللي جاية في الـ body
 
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // لو ما فيش أي قيم اتبعتت للتحديث، اعمل تحقق
+    if (!code && !codeCategory) {
+      return res.status(400).json({ message: "يجب إرسال قيمة واحدة على الأقل للتحديث" });
+    }
+
+    // انشاء كائن للتحديث بناءً على الحقول الموجودة في الـ body
+    const updateData = {};
+    if (code) updateData.code = code;  // لو code اتبعت، ضيفه
+    if (codeCategory) updateData.codeCategory = codeCategory;  // لو codeCategory اتبعت، ضيفه
+
+    // تحديث المنتج بناءً على الـ id والـ updateData المرسل
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData }, // فقط الحقول المرسلة سيتم تحديثها
+      { new: true }
+    );
+
+    // لو المنتج مش موجود، ارجع برسالة خطأ
     if (!product) {
       return res.status(404).json({ message: "المنتج غير متوفر في المخزن" });
     }
-    
+
+    // إرجاع المنتج بعد التحديث
     res.status(200).json(product);
   } catch (error) {
     console.error("Error:", error);

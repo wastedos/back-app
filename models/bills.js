@@ -59,10 +59,11 @@ const BillsSchema = new mongoose.Schema({
       invoicePrice : { type: Number },
     }
   ],
-  theRest: { type: Number, },
-  payment: { type: String, required: true },
+  payment: { type: String, },
   discount: { type: Number, },
   total: { type: Number, },
+  pay: { type: Number, },
+  theRest: { type: Number, },
   date:{ type: String,default: () => moment().format('MM-DD-YYYY') },
   createdAt: {
     type: Date,

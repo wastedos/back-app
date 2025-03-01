@@ -1,13 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const Bill = require('../models/bills');
+const { Safe, Deposit, } = require("../models/transaction.js")
 const { authenticate, } = require('../middlewares/authMiddleware');
 
 // =========================================== GET ===========================================
 router.get('/read-bills', async (req, res) => {
   try {
     const bills = await Bill.find().sort({ createdAt: -1 });
-    res.status(200).json(bills);
+    const totals = {
+      billTotal: 0,
+      payTotal: 0,
+      theRestTotal: 0,
+    };
+
+    // حساب الإجماليات
+    bills.forEach(bill => {
+      totals.billTotal += bill.total ? bill.total : 0;
+      totals.payTotal += bill.pay ? bill.pay : 0;
+      totals.theRestTotal += bill.theRest ? bill.theRest : 0;
+    });
+    const result = {
+      totalBills: totals.billTotal,
+      totalPay: totals.payTotal,
+      totaltheRest: totals.theRestTotal,
+    }
+    res.status(200).json({ bills, result });
   } catch (err) {
     res.status(500).json({ message: 'Error fetching job orders', error: err.message });
   }
@@ -112,6 +130,95 @@ router.get("/user-bills", authenticate, async (req, res) => {
     res.json(bills);
   } catch (error) {
     res.status(500).json({ message: "خطأ في جلب الفواتير", error });
+  }
+});
+// =========================================== UPDATE ===========================================
+
+//update byid
+router.put("/update-byid/:id", async (req, res) => {
+  try {
+    const { carKm, chassis } = req.body;  // استخراج الحقول اللي جاية في الـ body
+
+    // انشاء كائن للتحديث بناءً على الحقول الموجودة في الـ body
+    const updateData = {};
+    if (carKm !== undefined) updateData.carKm = carKm;
+    if (chassis !== undefined) updateData.chassis = chassis;
+
+    // تحديث المنتج بناءً على الـ id والـ updateData المرسل
+    const bills = await Bill.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData }, // فقط الحقول المرسلة سيتم تحديثها
+      { new: true }
+    );
+
+    // لو المنتج مش موجود، ارجع برسالة خطأ
+    if (!bills) {
+      return res.status(404).json({ message: "المنتج غير متوفر في المخزن" });
+    }
+
+    // إرجاع المنتج بعد التحديث
+    res.status(200).json(bills);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// سداد باقي الفاتورة
+router.put("/payed-bills/:id", async (req, res) => {
+  try {
+    const { payed, typeSafe } = req.body;
+
+    if (!payed || payed <= 0) {
+      return res.status(400).json({ error: "يجب إدخال مبلغ صحيح" });
+    }
+    if (!typeSafe) {
+      return res.status(400).json({ error: "يجب إدخال نوع الخزنة" });
+    }
+
+    const bill = await Bill.findById(req.params.id);
+    if (!bill) {
+      return res.status(404).json({ error: "الفاتورة غير موجودة" });
+    }
+
+    if (payed > bill.theRest) {
+      return res.status(400).json({ error: "المبلغ المدفوع أكبر من المبلغ المتبقي في الفاتورة" });
+    }
+
+    console.log("bill.payed قبل push:", bill.payed);
+
+    if (!Array.isArray(bill.payed)) {
+      bill.payed = [];
+    }
+
+    // ✅ تم تصحيح السطر هنا ✅
+    bill.payed.push({ payment: typeSafe, payedPrice: payed });
+
+    bill.pay += payed;
+    bill.theRest -= payed;
+
+    // تسجيل الإيداع في `Deposit`
+    const depositRecord = new Deposit({
+      typeSafe,
+      amountDeposit: payed,
+      reasonDeposit: `دفعة على فاتورة رقم ${bill.Jobid}`,
+    });
+
+    // تحديث الخزنة بزيادة المبلغ المدفوع
+    const updatedSafe = await Safe.findOneAndUpdate(
+      { typeSafe },
+      { $inc: { amountSafe: +payed } }, // إضافة المبلغ إلى الخزنة
+      { new: true, upsert: true }
+    );
+
+    await bill.save();
+    await depositRecord.save();
+    
+    res.status(200).json({ message: "تم تحديث الفاتورة", bill, depositRecord, updatedSafe });
+    
+  } catch (error) {
+    console.error("خطأ أثناء الدفع:", error);
+    res.status(500).json({ error: "حدث خطأ أثناء تسجيل الدفع" });
   }
 });
 

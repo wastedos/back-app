@@ -3,12 +3,13 @@ const moment = require('moment');
 
 //product
 const productSchema = new mongoose.Schema({
-  code: { type: Number, required: true, unique: true},
-  carModel: { type: String},
+  code: { type: Number, required: true, unique: true },
+  codeCategory: { type: String, unique: true },
+  carModel: { type: String, },
   category: { type: String,},
   brand: { type: String, },
-  income: { type: Number },
-  outgo: { type: Number },
+  income: { type: Number, },
+  outgo: { type: Number, },
   returnin: { type: Number, },
   returnout: { type: Number, },
   quantity: { type: Number,},
@@ -19,6 +20,7 @@ const productSchema = new mongoose.Schema({
 //income
 const incomeSchema = new mongoose.Schema({
   code: { type: Number, required: true, },
+  codeCategory: { type: String,},
   billnumber: { type: String,},
   carModel: { type: String},
   category: { type: String, required: true, },
@@ -36,7 +38,8 @@ const incomeSchema = new mongoose.Schema({
 
 //outgo
 const outgoSchema = new mongoose.Schema({
-  code: { type: String, required: true, },
+  code: { type: Number, required: true, },
+  codeCategory: { type: String,},
   billnumber: { type: String,},
   carModel: { type: String},
   category: { type: String, },
@@ -57,6 +60,7 @@ const outgoSchema = new mongoose.Schema({
 //return 
 const returnincomeSchema = new mongoose.Schema({
   code: { type: Number, required: true,},
+  codeCategory: { type: String,},
   billnumber: { type: String, },
   carModel: { type: String},
   category: { type: String, required: true },
@@ -77,6 +81,7 @@ const returnincomeSchema = new mongoose.Schema({
 //return outgo
 const returnoutgoSchema = new mongoose.Schema({
   code: { type: Number, required: true,},
+  codeCategory: { type: String,},
   billnumber: { type: String, },
   carModel: { type: String},
   category: { type: String, },
@@ -98,7 +103,7 @@ const returnoutgoSchema = new mongoose.Schema({
 //history
 const historySchema = new mongoose.Schema({
   userid: { type: String, required: true },
-  code: { type: String, required: true },
+  code: { type: Number, required: true },
   category: { type: String, required: true },
   brand: { type: String, required: true },
   quantity: { type: Number, required: true },

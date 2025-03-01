@@ -62,6 +62,7 @@ const jobOrderSchema = new mongoose.Schema({
   payment: { type: String, },
   discount: { type: Number, },
   total: { type: Number, },
+  pay: { type: Number, },
   theRest: { type: Number, },
   createdAt: {
     type: Date,
@@ -100,6 +101,7 @@ jobOrderSchema.pre('save', async function (next) {
   // Calculate the grand total
   this.total = partsTotal + newPartsTotal + outjobTotal + otherTotal + invoiceTotal - (this.discount || 0);
   this.theRest = this.total - payedTotal
+  this.pay = payedTotal
   next();
 });
 
