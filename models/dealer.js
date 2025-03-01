@@ -9,10 +9,12 @@ const dealerSchema = new mongoose.Schema({
   service: { type: String,  },
   typeService: [
     {
+      createdAt: { type: Date, default: Date.now, },
       date: { type: String, default: () => moment().format('MM-DD-YYYY')},
       code: { type: String},
       billNumber: { type: String, },
       type: { type: String, },
+      brand: { type: String, },
       count: { type: Number, },
       servicePriceBuy: { type: Number, },
       servicePriceSell: { type: Number, },

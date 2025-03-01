@@ -272,8 +272,8 @@ router.get("/read-product", async (req, res) => {
   try {
 
     const product = await Product.find();
-    const totalSum = product.reduce((sum, product) => sum + (product.total || 0), 0);
-
+    const totalSum = product.reduce((sum, product) => sum + (product.price || 0) * (product.quantity || 0), 0);
+    
     res.status(200).json({product, totalSum});
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -519,7 +519,7 @@ router.delete("/delete-income/:id", async (req, res) => {
       console.log("Dealer before update:", dealer.typeService);
 
       // هنا نحتاج لتحديد الخدمة المحددة التي نريد حذفها
-      const serviceToRemove = dealer.typeService.find(service => service.billNumber === income.billnumber && service.type === income.category);
+      const serviceToRemove = dealer.typeService.find(service => service.billNumber === income.billnumber && service.type === income.category && service.count === income.quantity && service.date === income.date);
       
       if (serviceToRemove) {
         dealer.typeService = dealer.typeService.filter(service => service !== serviceToRemove);
