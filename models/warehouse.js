@@ -4,7 +4,7 @@ const moment = require('moment');
 //product
 const productSchema = new mongoose.Schema({
   code: { type: Number, required: true, unique: true },
-  codeCategory: { type: String, unique: true },
+  codeCategory: { type: String,},
   carModel: { type: String, },
   category: { type: String,},
   brand: { type: String, },
