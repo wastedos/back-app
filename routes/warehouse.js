@@ -18,11 +18,11 @@ router.post("/add-income", async (req, res) => {
     // إضافة سجل الدخل
     const income = new Income({
       code,
-      codeCategory: existingProduct ? existingProduct.codeCategory : codeCategory,
+      codeCategory,
       billnumber,
-      carModel: existingProduct ? existingProduct.carModel : carModel,
-      category: existingProduct ? existingProduct.category : category,
-      brand: existingProduct ? existingProduct.brand : brand,
+      carModel,
+      category,
+      brand,
       quantity,
       price,
       total: quantity * price,
@@ -38,7 +38,7 @@ router.post("/add-income", async (req, res) => {
 
     // تحديث بيانات التاجر
     dealer.typeService.push({
-      type: existingProduct ? existingProduct.category : category,
+      type: category,
       count: quantity,
       servicePriceBuy: price,
       servicePriceSell: 0,
@@ -291,6 +291,7 @@ router.get("/read-product/:code", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 router.get("/read-product-by-codeCategory/:codeCategory", async (req, res) => {
   try {
     const product = await Product.findOne({ codeCategory: req.params.codeCategory });
