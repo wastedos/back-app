@@ -20,9 +20,9 @@ const productSchema = new mongoose.Schema({
 //income
 const incomeSchema = new mongoose.Schema({
   code: { type: Number, required: true, },
-  codeCategory: { type: String,},
-  billnumber: { type: String,},
-  carModel: { type: String},
+  codeCategory: { type: String, },
+  billnumber: { type: String, },
+  carModel: { type: String, },
   category: { type: String, required: true, },
   brand: { type: String, required: true, },
   quantity: { type: Number, required: true, },

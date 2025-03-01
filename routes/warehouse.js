@@ -1,20 +1,24 @@
 const express = require("express");
 const { Product, Income, Outgo, ReturnIncome, ReturnOutgo, Historywarehouse } = require("../models/warehouse");
 const { Dealer } = require("../models/dealer")
+const mongoose = require('mongoose');
 const router = express.Router();
 
 /* ===================================== POST ===================================== */
 // Add income
 router.post("/add-income", async (req, res) => {
-  const { code, billnumber, carModel, category, brand, quantity, price, dealerName, } = req.body;
+  const { code, codeCategory, billnumber, carModel, category, brand, quantity, price, dealerName } = req.body;
 
+  const session = await mongoose.startSession();
+  session.startTransaction(); // 🟢 نبدأ المعاملة
 
   try {
-    const existingProduct = await Product.findOne({ code });
+    const existingProduct = await Product.findOne({ code }).session(session);
 
     // إضافة سجل الدخل
     const income = new Income({
       code,
+      codeCategory: existingProduct ? existingProduct.codeCategory : codeCategory,
       billnumber,
       carModel: existingProduct ? existingProduct.carModel : carModel,
       category: existingProduct ? existingProduct.category : category,
@@ -24,9 +28,15 @@ router.post("/add-income", async (req, res) => {
       total: quantity * price,
       dealerName,
     });
-    await income.save();
+    await income.save({ session });
 
-    const dealer = await Dealer.findOne({ dealerName });
+    // البحث عن التاجر
+    const dealer = await Dealer.findOne({ dealerName }).session(session);
+    if (!dealer) {
+      throw new Error("Dealer not found!");
+    }
+
+    // تحديث بيانات التاجر
     dealer.typeService.push({
       type: existingProduct ? existingProduct.category : category,
       count: quantity,
@@ -35,22 +45,19 @@ router.post("/add-income", async (req, res) => {
       code: code,
       billNumber: income.billnumber,
     });
-    await dealer.save();
+    await dealer.save({ session });
 
-    // فحص إذا كان المنتج موجودًا
+    // تحديث المنتج أو إنشاؤه
     if (existingProduct) {
-      // إذا كان المنتج موجودًا، نقوم بتحديث الكمية والدخل
       existingProduct.quantity += Number(quantity);
       existingProduct.income += Number(quantity);
       existingProduct.price = price;
-      existingProduct.total = existingProduct.quantity * price; // تحديث الإجمالي
-      await existingProduct.save();
-      
-      res.status(200).json({ message: "Product updated and income record added." });
+      existingProduct.total = existingProduct.quantity * price;
+      await existingProduct.save({ session });
     } else {
-      // إذا لم يكن المنتج موجودًا، نضيف منتجًا جديدًا
       const newProduct = new Product({
         code,
+        codeCategory,
         category,
         carModel,
         brand,
@@ -63,12 +70,19 @@ router.post("/add-income", async (req, res) => {
         total: quantity * price,
         return: 0,
       });
-      await newProduct.save();
-      res.status(201).json({ message: "New product created and income record added." });
+      await newProduct.save({ session });
     }
+
+    await session.commitTransaction(); // ✅ تأكيد العملية
+    session.endSession();
+
+    res.status(201).json({ message: "Income and product processed successfully." });
+
   } catch (error) {
-    console.error("Error in /add-income:", error.message);
-    res.status(500).json({ error: error.message });
+    await session.abortTransaction(); // ❌ إلغاء العملية إذا حدث خطأ
+    session.endSession();
+    console.error("Transaction failed:", error.message);
+    res.status(500).json({ error: "Transaction failed: " + error.message });
   }
 });
 
