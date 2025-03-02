@@ -229,8 +229,18 @@ router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount:
 
 
 // =============================> حذف طلب تشغيل عند إصدار فاتورة <=============================
+let processingJobs = new Set(); 
 router.delete('/bills-byid/:id', async (req, res) => {
+  const jobOrderId = req.params.id;
+  
+  // تحقق من إذا كان الطلب قد تم معالجته مسبقًا
+  if (processingJobs.has(jobOrderId)) {
+    return res.status(400).json({ message: 'هذا الطلب قيد المعالجة بالفعل' });
+  }
+
   try {
+    processingJobs.add(jobOrderId);
+
     // البحث عن الطلب باستخدام المعرف
     const jobOrder = await JobOrder.findById(req.params.id);
     if (!jobOrder) {
@@ -291,6 +301,7 @@ router.delete('/bills-byid/:id', async (req, res) => {
       // تحديث الكمية في المخزن
       product.quantity -= part.quantity;
       product.outgo = (product.outgo || 0) + part.quantity;
+      
       await product.save();
 
       // إضافة سجل في جدول Outgo
