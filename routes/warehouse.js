@@ -418,26 +418,91 @@ router.put("/update-product/:id", async (req, res) => {
   }
 });
 
-/*
-//Update income by id
+// Update income by id
 router.put("/update-income/:id", async (req, res) => {
   try {
-    console.log("Request Params:", req.params);
-    console.log("Request Body:", req.body);
+    const { id } = req.params;
+    const { brand, category, carModel, quantity } = req.body;
 
-    const income = await Income.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // جلب بيانات الدخل القديمة
+    const income = await Income.findById(id);
     if (!income) {
       return res.status(404).json({ message: "Item not found" });
     }
-    
-    res.status(200).json(income);
+
+    // جلب بيانات المنتج المرتبط بنفس الكود
+    const product = await Product.findOne({ code: income.code });
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // حساب الفرق بين الكمية القديمة والجديدة
+    const oldQuantity = income.quantity || 0;
+    const newQuantity = quantity !== undefined ? quantity : oldQuantity;
+    const quantityDiff = newQuantity - oldQuantity;
+
+    // تحديث بيانات الدخل
+    if (brand !== undefined && brand !== "") income.brand = brand;
+    if (category !== undefined && category !== "") income.category = category;
+    if (carModel !== undefined && carModel !== "") income.carModel = carModel;
+
+    // حفظ التحديثات في قاعدة البيانات
+    await income.save();
+
+    // تحديث بيانات المنتج (طرح القديم وإضافة الجديد)
+    const updatedProduct = await Product.findOneAndUpdate(
+      { code: income.code },
+      {
+        $inc: { stock: quantityDiff }, // تعديل المخزون بناءً على الفرق
+        ...(brand !== undefined && brand !== "" && { $set: { brand } }),
+        ...(category !== undefined && category !== "" && { $set: { category } }),
+        ...(carModel !== undefined && carModel !== "" && { $set: { carModel } }),
+      },
+      { new: true }
+    );
+
+    // جلب بيانات الـ dealer بناءً على اسم التاجر
+    const dealer = await Dealer.findOne({ dealerName: income.dealerName });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    // Log the dealer's typeService array
+    console.log("Dealer's typeService array:", dealer.typeService);
+
+    // مقارنة بين billNumber و code فقط (تحويل الـ code إلى نص إذا لزم الأمر)
+    const updateService = dealer.typeService.find(service =>
+      String(service.billNumber) === String(income.billnumber) &&
+      String(service.code) === String(income.code)
+    );
+
+    console.log('Income:', income);
+    console.log("Service to update:", updateService);
+
+    if (updateService) {
+      // تحديث الـ type بناءً على الـ billNumber و code
+      dealer.typeService = dealer.typeService.map(service => {
+        if (String(service.billNumber) === String(income.billnumber) && String(service.code) === String(income.code)) {
+          service.type = income.category; // تحديث الـ type ليكون متوافقًا مع الـ category
+        }
+        return service;
+      });
+
+      // حفظ التحديثات في الـ dealer
+      await dealer.save();
+    } else {
+      console.log("No matching service found in the dealer's typeService array.");
+    }
+
+    res.status(200).json({ message: "تم تحديث بيانات الدخل والمخزون بنجاح", income, updatedProduct, dealer });
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "حدث خطأ أثناء تحديث الدخل والمخزون" });
   }
 });
 
-//Update income by id
+
+//Update outgo by id
 router.put("/update-outgo/:id", async (req, res) => {
   try {
     console.log("Request Params:", req.params);
@@ -488,7 +553,7 @@ router.put("/update-returnOutgo/:id", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-*/
+
 
 
 /* ===================================== DELETE ===================================== */
@@ -605,16 +670,36 @@ router.delete("/delete-returnOutgo/:id", async (req, res) => {
 
 /* ===================================== OTHER ===================================== */
 
+async function updateTotal() {
+  try {
+    // تحديث جميع المنتجات
+    const products = await Product.find();
+
+    for (let product of products) {
+      if (product.total) {
+        const priceTotal = product.price * product.quantity;
+        product.total = priceTotal;
+        await product.save();
+        console.log(`Product with code ${product.code} updated with priceSell: ${priceTotal}`);
+      }
+    }
+    console.log('All products have been updated.');
+  } catch (error) {
+    console.error('Error updating products:', error);
+  }
+}
+
 async function updatePriceSell() {
   try {
     // تحديث جميع المنتجات
-    const products = await Product.find(); // جلب جميع المنتجات
+    const products = await Product.find();
 
     for (let product of products) {
-      if (product.price) {  // التأكد من وجود قيمة للـ price
-        const pricesell = product.price * 1.35;  // ضرب السعر في 1.35
-        product.priceSell = pricesell;  // تحديث الـ priceSell
-        await product.save();  // حفظ التحديث في قاعدة البيانات
+      if (product.price) {
+        const pricesell = product.price * 1.35;
+        const roundedPriceSell = Math.round(pricesell / 50) * 50;
+        product.priceSell = roundedPriceSell;
+        await product.save();
         console.log(`Product with code ${product.code} updated with priceSell: ${pricesell}`);
       }
     }
@@ -623,6 +708,7 @@ async function updatePriceSell() {
     console.error('Error updating products:', error);
   }
 }
+updateTotal();
 updatePriceSell();
 
 //exports
