@@ -605,7 +605,25 @@ router.delete("/delete-returnOutgo/:id", async (req, res) => {
 
 /* ===================================== OTHER ===================================== */
 
+async function updatePriceSell() {
+  try {
+    // تحديث جميع المنتجات
+    const products = await Product.find(); // جلب جميع المنتجات
 
+    for (let product of products) {
+      if (product.price) {  // التأكد من وجود قيمة للـ price
+        const pricesell = product.price * 1.35;  // ضرب السعر في 1.35
+        product.priceSell = pricesell;  // تحديث الـ priceSell
+        await product.save();  // حفظ التحديث في قاعدة البيانات
+        console.log(`Product with code ${product.code} updated with priceSell: ${pricesell}`);
+      }
+    }
+    console.log('All products have been updated.');
+  } catch (error) {
+    console.error('Error updating products:', error);
+  }
+}
+updatePriceSell();
 
 //exports
 module.exports = router;

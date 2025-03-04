@@ -311,7 +311,6 @@ router.put("/edit-service/:dealerId/:serviceId", upload.single("serviceImage"), 
 router.get('/read-dealer', async (req, res) => {
     try {
       const dealers = await Dealer.find(); // جلب كل التجار من قاعدة البيانات
-      console.log("✅ بيانات التجار:", dealers);
       res.status(200).json(dealers); // إرسال التجار كـ response
     } catch (err) {
       console.error('يوجد خطاء في جلب التجار:', err);

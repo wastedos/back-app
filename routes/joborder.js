@@ -17,9 +17,6 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 20 }, { na
   session.startTransaction();
 
   try {
-    console.log("✅ Received body:", req.body);
-    console.log("✅ Uploaded files:", req.files);
-
     const newOrderData = {
       clientName: req.body.clientName,
       clientPhone: req.body.clientPhone,
@@ -27,7 +24,7 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 20 }, { na
       carColor: req.body.carColor,
       carKm: req.body.carKm,
       chassis: req.body.chassis,
-      discount: req.body.discount || "",
+      discount: req.body.discount || 0,
       payment: req.body.payment || "",
       jobs: req.body.jobs ? JSON.parse(req.body.jobs) : [],
       parts: req.body.parts ? JSON.parse(req.body.parts) : [],
@@ -51,8 +48,32 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 20 }, { na
       });
     }
 
+    // حساب إجمالي الفاتورة بعد الخصم
+    const totalAfterDiscount = newOrderData.parts.reduce((sum, part) => sum + (part.quantity * part.pricesell || 0), 0) +
+                               newOrderData.newparts.reduce((sum, part) => sum + (part.quantity * part.pricesell || 0), 0) +
+                               newOrderData.outjob.reduce((sum, job) => sum + (job.jobPriceSell || 0), 0) +
+                               newOrderData.other.reduce((sum, item) => sum + (item.otherPrice || 0), 0) +
+                               newOrderData.invoice.reduce((sum, item) => sum + (item.invoicePrice || 0), 0) -
+                               (newOrderData.discount || 0);
+
+    // حساب إجمالي المدفوعات
+    const payedTotal = newOrderData.payed.reduce((sum, item) => sum + (item.payedPrice || 0), 0);
+
+    // حساب المبلغ المتبقي
+    const remainingAmount = totalAfterDiscount - payedTotal;
+
+    // التحقق من أن المدفوع لا يتجاوز المتبقي
+    if (payedTotal > totalAfterDiscount) {
+      return res.status(400).json({
+        message: "❌ Error: Payment amount exceeds the remaining balance!",
+        totalInvoice: totalAfterDiscount,
+        attemptedPayment: payedTotal,
+        remainingAmount: remainingAmount
+      });
+    }
+
     // إنشاء الطلب الجديد داخل الـ transaction
-    const newOrder = new JobOrder(newOrderData);
+    const newOrder = new JobOrder({ ...newOrderData, total: totalAfterDiscount, theRest: remainingAmount, pay: payedTotal });
     await newOrder.save({ session });
 
     // إضافة المدفوعات إلى Deposit وتحديث Safe داخل الـ transaction
@@ -96,8 +117,6 @@ router.post("/add", upload.fields([{ name: 'newpartsImage', maxCount: 20 }, { na
 // update joborder byid
 router.put('/update-byid/:id', upload.fields([{ name: 'newpartsImage', maxCount: 5 }, { name: 'outjobImage', maxCount: 5 }]), async (req, res) => {
   try {
-    console.log("✅ Received body:", req.body);
-    console.log("✅ Uploaded files:", req.files);
     
     // 1. البحث عن الطلب القديم
     const existingOrder = await JobOrder.findById(req.params.id);
@@ -247,20 +266,27 @@ router.delete('/bills-byid/:id', async (req, res) => {
       return res.status(404).json({ message: 'Job order not found' });
     }
 
-    // تحقق مسبق من وجود كل الأجزاء
-    const missingParts = [];
+    // تحقق من توفر الأجزاء والكمية المطلوبة
+    const insufficientParts = [];
+
     for (const part of jobOrder.parts) {
       const product = await Product.findOne({ code: part.code });
+
       if (!product) {
-        missingParts.push(part.code); // أضف الكود إلى قائمة الأجزاء المفقودة
+        insufficientParts.push({ code: part.code, issue: 'غير موجود في المخزن' });
+      } else if (product.quantity < part.quantity) {
+        insufficientParts.push({ 
+          code: part.code, 
+          issue: `الكمية غير كافية، المتاح: ${product.quantity}, المطلوب: ${part.quantity}` 
+        });
       }
     }
 
-    // إذا كانت هناك أجزاء مفقودة، أعد استجابة بخطأ
-    if (missingParts.length > 0) {
-      return res.status(404).json({
-        error: 'بعض الأجزاء غير موجودة في المخزن',
-        missingParts, // قائمة الأكواد المفقودة
+    // إذا كانت هناك أجزاء غير متوفرة أو كميتها غير كافية، أعد استجابة بخطأ
+    if (insufficientParts.length > 0) {
+      return res.status(400).json({
+        error: 'بعض الأجزاء غير متوفرة أو كميتها غير كافية',
+        details: insufficientParts, // تفاصيل الأجزاء التي بها مشكلة
       });
     }
 
@@ -430,6 +456,9 @@ router.delete('/bills-byid/:id', async (req, res) => {
   } catch (err) {
     console.error('Error processing job order:', err);
     res.status(500).json({ message: 'Error processing job order', error: err.message });
+  } finally {
+    // ✅ إزالة الطلب من قائمة المعالجة بعد الانتهاء
+    processingJobs.delete(jobOrderId);
   }
 });
 

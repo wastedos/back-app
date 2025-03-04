@@ -14,6 +14,7 @@ const productSchema = new mongoose.Schema({
   returnout: { type: Number, },
   quantity: { type: Number,},
   price: { type: Number, },
+  priceSell: { type: Number},
   total: { type: Number, },
 });
 
