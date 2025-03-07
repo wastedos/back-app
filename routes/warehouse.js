@@ -386,17 +386,20 @@ router.get('/warehousechart', async (req, res) => {
 //Update Product by id
 router.put("/update-product/:id", async (req, res) => {
   try {
-    const { code, codeCategory } = req.body;  // استخراج الحقول اللي جاية في الـ body
+    const { code, codeCategory, carModel, category, brand, } = req.body;  // استخراج الحقول اللي جاية في الـ body
 
     // لو ما فيش أي قيم اتبعتت للتحديث، اعمل تحقق
-    if (!code && !codeCategory) {
+    if (!code && !codeCategory && !carModel && !category && !brand) {
       return res.status(400).json({ message: "يجب إرسال قيمة واحدة على الأقل للتحديث" });
     }
 
     // انشاء كائن للتحديث بناءً على الحقول الموجودة في الـ body
     const updateData = {};
-    if (code) updateData.code = code;  // لو code اتبعت، ضيفه
-    if (codeCategory) updateData.codeCategory = codeCategory;  // لو codeCategory اتبعت، ضيفه
+    if (code) updateData.code = code;
+    if (codeCategory) updateData.codeCategory = codeCategory;
+    if (carModel) updateData.carModel = carModel;
+    if (category) updateData.category = category;
+    if (brand) updateData.brand = brand;
 
     // تحديث المنتج بناءً على الـ id والـ updateData المرسل
     const product = await Product.findByIdAndUpdate(

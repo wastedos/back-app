@@ -18,6 +18,14 @@ const productSchema = new mongoose.Schema({
   total: { type: Number, },
 });
 
+productSchema.pre('save', function (next) {
+  if (this.price) {
+    const pricesell = this.price * 1.35;
+    this.priceSell = Math.round(pricesell / 50) * 50;
+  }
+  next();
+});
+
 //income
 const incomeSchema = new mongoose.Schema({
   code: { type: Number, required: true, },
