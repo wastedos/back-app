@@ -17,6 +17,9 @@ const billsRoutes = require('./routes/bills');
 const dealerRoutes = require('./routes/dealer');
 const bookingRoutes = require('./routes/booking');
 
+const imagesRoutes = require('./routes/image');
+
+
 const app = express();
 
 const corsOptions = {
@@ -51,6 +54,7 @@ app.use('/api/bills', billsRoutes);
 app.use('/api/dealer', dealerRoutes);
 app.use('/api/booking', bookingRoutes);
 
+app.use('/api/images', imagesRoutes);
 
 //--------------- Start Server ---------------
 const PORT = process.env.PORT || 5000;
